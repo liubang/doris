@@ -1,0 +1,44 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(default_visibility = ["//fe:__subpackages__"])
+
+java_library(
+    name = "fe-common",
+    srcs = glob(["src/main/java/**/*.java"]),
+    resources = glob(["src/main/resources/**"], allow_empty = True),
+    deps = [
+        "//fe/fe-foundation",
+        "//gensrc:doris_thrift_java",
+        "@maven//:com_aliyun_aliyun_java_auth",
+        "@maven//:com_aliyun_odps_odps_sdk_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_google_code_gson_gson",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_codec_commons_codec",
+        "@maven//:commons_io_commons_io",
+        "@maven//:io_trino_trino_main",
+        "@maven//:io_trino_trino_plugin_toolkit",
+        "@maven//:io_trino_trino_spi",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:joda_time_joda_time",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_doris_hive_catalog_shade",
+        "@maven//:org_apache_hadoop_hadoop_aws",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+        "@maven//:org_apache_logging_log4j_log4j_core",
+        "@maven//:org_apache_logging_log4j_log4j_iostreams",
+        "@maven//:org_apache_thrift_libthrift",
+        "@maven//:org_projectlombok_lombok",
+        "@maven//:org_roaringbitmap_RoaringBitmap",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+    plugins = [":lombok_plugin"],
+)
+
+java_plugin(
+    name = "lombok_plugin",
+    processor_class = "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
+    deps = ["@maven//:org_projectlombok_lombok"],
+)

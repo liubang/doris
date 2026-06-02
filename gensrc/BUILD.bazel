@@ -1,0 +1,121 @@
+load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:thrift.bzl", "thrift_java_library")
+
+package(default_visibility = ["//fe:__subpackages__"])
+
+# =============================================================================
+# Version.java Code Generation
+# =============================================================================
+
+genrule(
+    name = "version_java_gen",
+    outs = ["version_java_gen.srcjar"],
+    cmd = """
+        TMPDIR=$$(mktemp -d)
+        mkdir -p $$TMPDIR/org/apache/doris/common
+        REVISION=$$(git -C $$(dirname $(location //:MODULE.bazel)) log -1 --pretty=format:"%H" 2>/dev/null || echo "Unknown")
+        SHORT_REV=$$(git -C $$(dirname $(location //:MODULE.bazel)) log -1 --pretty=format:"%h" 2>/dev/null || echo "Unknown")
+        BUILD_TIME=$$(date +"%a, %d %b %Y %H:%M:%S %Z")
+        HOSTNAME=$$(hostname)
+        cat > $$TMPDIR/org/apache/doris/common/Version.java << 'JAVAEOF'
+package org.apache.doris.common;
+
+public class Version {
+  public static final String DORIS_BUILD_VERSION_PREFIX = "doris";
+  public static final int DORIS_BUILD_VERSION_MAJOR = 4;
+  public static final int DORIS_BUILD_VERSION_MINOR = 1;
+  public static final int DORIS_BUILD_VERSION_PATCH = 1;
+  public static final int DORIS_BUILD_VERSION_HOTFIX = 0;
+  public static final String DORIS_BUILD_VERSION_RC_VERSION = "";
+  public static final String DORIS_FEATURE_LIST = "";
+  public static final String DORIS_BUILD_VERSION = "doris-4.1.1";
+JAVAEOF
+        echo "  public static final String DORIS_BUILD_HASH = \\"git://$$HOSTNAME@$$REVISION\\";" >> $$TMPDIR/org/apache/doris/common/Version.java
+        echo "  public static final String DORIS_BUILD_SHORT_HASH = \\"$$SHORT_REV\\";" >> $$TMPDIR/org/apache/doris/common/Version.java
+        echo "  public static final String DORIS_BUILD_TIME = \\"$$BUILD_TIME\\";" >> $$TMPDIR/org/apache/doris/common/Version.java
+        echo "  public static final String DORIS_BUILD_INFO = \\"$$HOSTNAME\\";" >> $$TMPDIR/org/apache/doris/common/Version.java
+        echo "  public static final String DORIS_JAVA_COMPILE_VERSION = \\"bazel-build\\";" >> $$TMPDIR/org/apache/doris/common/Version.java
+        echo "  public static final int DORIS_FE_META_VERSION = 0;" >> $$TMPDIR/org/apache/doris/common/Version.java
+        echo "}" >> $$TMPDIR/org/apache/doris/common/Version.java
+        ORIG_DIR=$$PWD
+        cd $$TMPDIR
+        zip -r $$ORIG_DIR/$@ . -i "*.java"
+        cd $$ORIG_DIR
+        rm -rf $$TMPDIR
+    """,
+    srcs = ["//:MODULE.bazel"],
+)
+
+java_library(
+    name = "doris_version_java",
+    srcs = [":version_java_gen"],
+)
+
+# =============================================================================
+# Thrift Java Code Generation
+# =============================================================================
+
+thrift_java_library(
+    name = "doris_thrift_java",
+    srcs = glob(["thrift/*.thrift"]),
+    thrift_compiler = "@thrift_compiler//:thrift",
+)
+
+# =============================================================================
+# Protobuf Java Code Generation
+# =============================================================================
+
+proto_library(
+    name = "doris_proto",
+    srcs = glob(["proto/*.proto"]),
+    strip_import_prefix = "proto",
+)
+
+java_proto_library(
+    name = "doris_proto_java",
+    deps = [":doris_proto"],
+)
+
+# =============================================================================
+# gRPC Java Stubs (for service definitions in proto files)
+# =============================================================================
+
+genrule(
+    name = "doris_grpc_java_gen",
+    srcs = glob(["proto/*.proto"]),
+    outs = ["doris_grpc_java_gen.srcjar"],
+    cmd = """
+        PROTO_DIR=$$(dirname $(location proto/internal_service.proto))
+        TMPDIR=$$(mktemp -d)
+        $(location @protobuf//:protoc) \
+            --plugin=protoc-gen-grpc-java=$(location @grpc_java_plugin//:protoc-gen-grpc-java) \
+            --grpc-java_out=$$TMPDIR \
+            --proto_path=$$PROTO_DIR \
+            $(location proto/function_service.proto) \
+            $(location proto/internal_service.proto) \
+            $(location proto/cloud.proto)
+        ORIG_DIR=$$PWD
+        cd $$TMPDIR
+        zip -r $$ORIG_DIR/$@ . -i "*.java"
+        cd $$ORIG_DIR
+        rm -rf $$TMPDIR
+    """,
+    tools = [
+        "@protobuf//:protoc",
+        "@grpc_java_plugin//:protoc-gen-grpc-java",
+    ],
+)
+
+java_library(
+    name = "doris_grpc_java",
+    srcs = [":doris_grpc_java_gen"],
+    deps = [
+        ":doris_proto_java",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:javax_annotation_javax_annotation_api",
+    ],
+)

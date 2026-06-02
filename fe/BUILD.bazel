@@ -1,0 +1,2 @@
+# Apache Doris FE - Top-level package
+package(default_visibility = ["//visibility:public"])

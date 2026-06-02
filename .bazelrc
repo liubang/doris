@@ -1,0 +1,47 @@
+# =============================================================================
+# Apache Doris FE - Bazel Build Configuration
+# =============================================================================
+
+# --- Java Toolchain ---
+build --java_language_version=17
+build --java_runtime_version=remotejdk_17
+build --tool_java_language_version=17
+build --tool_java_runtime_version=remotejdk_17
+
+# --- Build Performance ---
+build --jobs=auto
+build --experimental_worker_multiplex_sandboxing
+build --experimental_reuse_sandbox_directories
+
+# --- Strict Java Deps ---
+build --experimental_strict_java_deps=warn
+
+# --- Disable header jar compilation (required for Lombok cross-module support) ---
+build --nojava_header_compilation
+
+# --- Disable Error Prone checks that conflict with existing Doris code ---
+build --javacopt="-XepDisableAllChecks"
+
+# --- Module version check (protobuf resolved to higher version via MVS) ---
+common --check_direct_dependencies=off
+
+# --- Error Prone (disabled by default, enable with --config=errorprone) ---
+build:errorprone --extra_toolchains=@rules_java//java/toolchains/error_prone:error_prone_java_toolchain
+
+# --- Platform-specific configurations ---
+build:linux --host_platform=@platforms//os:linux
+build:macos --host_platform=@platforms//os:osx
+
+# --- Remote cache (optional, for CI) ---
+# build:remote --remote_cache=grpc://localhost:9092
+
+# --- Test configuration ---
+test --test_output=errors
+test --test_verbose_timeout_warnings
+
+# --- Coverage ---
+coverage --combined_report=lcov
+coverage --instrumentation_filter="//fe[/:]"
+
+# --- Import user-specific settings ---
+try-import %workspace%/user.bazelrc

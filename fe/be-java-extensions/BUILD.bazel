@@ -1,0 +1,254 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(default_visibility = ["//fe:__subpackages__"])
+
+# =============================================================================
+# java-common (shared base for all BE Java extensions)
+# =============================================================================
+
+java_library(
+    name = "java-common",
+    srcs = glob(["java-common/src/main/java/**/*.java"]),
+    deps = [
+        "//fe/fe-common",
+        "@maven//:com_esotericsoftware_reflectasm",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:org_apache_velocity_velocity_engine_core",
+        "@maven//:org_apache_httpcomponents_httpclient",
+        "@maven//:org_apache_arrow_arrow_memory_unsafe",
+        "@maven//:org_apache_arrow_arrow_vector",
+        "@maven//:org_scala_lang_scala_library",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_antlr_antlr4_runtime",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_lang_commons_lang",
+        "@maven//:software_amazon_awssdk_s3",
+        "@maven//:software_amazon_awssdk_sts",
+        "@maven//:software_amazon_awssdk_glue",
+        "@maven//:software_amazon_awssdk_dynamodb",
+        "@maven//:software_amazon_awssdk_s3tables",
+        "@maven//:software_amazon_awssdk_s3_transfer_manager",
+        "@maven//:software_amazon_awssdk_sdk_core",
+        "@maven//:software_amazon_s3tables_s3_tables_catalog_for_iceberg",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_apache_logging_log4j_log4j_core",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# =============================================================================
+# java-udf
+# =============================================================================
+
+java_library(
+    name = "java-udf",
+    srcs = glob(["java-udf/src/main/java/**/*.java"]),
+    deps = [
+        ":java-common",
+        "@maven//:org_apache_doris_hive_catalog_shade",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# jdbc-scanner
+# =============================================================================
+
+java_library(
+    name = "jdbc-scanner",
+    srcs = glob(["jdbc-scanner/src/main/java/**/*.java"]),
+    deps = [
+        ":java-common",
+        "@maven//:com_zaxxer_HikariCP",
+        "@maven//:org_semver4j_semver4j",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# paimon-scanner
+# =============================================================================
+
+java_library(
+    name = "paimon-scanner",
+    srcs = glob(["paimon-scanner/src/main/java/**/*.java"]),
+    deps = [
+        ":java-common",
+        "@maven//:org_apache_paimon_paimon_core",
+        "@maven//:org_apache_paimon_paimon_common",
+        "@maven//:org_apache_paimon_paimon_hive_connector_3_1",
+        "@maven//:org_apache_paimon_paimon_format",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# iceberg-metadata-scanner
+# =============================================================================
+
+java_library(
+    name = "iceberg-metadata-scanner",
+    srcs = glob(["iceberg-metadata-scanner/src/main/java/**/*.java"]),
+    deps = [
+        ":java-common",
+        "@maven//:org_apache_iceberg_iceberg_core",
+        "@maven//:org_apache_iceberg_iceberg_aws",
+        "@maven//:software_amazon_awssdk_auth",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# hadoop-hudi-scanner
+# =============================================================================
+
+java_library(
+    name = "hadoop-hudi-scanner",
+    srcs = glob(["hadoop-hudi-scanner/src/main/java/**/*.java"]),
+    deps = [
+        ":java-common",
+        ":hadoop-deps",
+        "@maven//:org_apache_hudi_hudi_common",
+        "@maven//:org_apache_hudi_hudi_io",
+        "@maven//:org_apache_hudi_hudi_hadoop_mr",
+        "@maven//:org_apache_parquet_parquet_avro",
+        "@maven//:org_apache_avro_avro",
+        "@maven//:io_airlift_concurrent",
+        "@maven//:io_airlift_aircompressor",
+        "@maven//:com_github_luben_zstd_jni",
+        "@maven//:com_esotericsoftware_kryo_shaded",
+        "@maven//:io_trino_hive_hive_apache",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# avro-scanner
+# =============================================================================
+
+java_library(
+    name = "avro-scanner",
+    srcs = glob(["avro-scanner/src/main/java/**/*.java"]),
+    deps = [
+        ":java-common",
+        "@maven//:org_apache_thrift_libthrift",
+        "@maven//:org_apache_avro_avro_mapred",
+        "@maven//:org_apache_avro_avro",
+        "@maven//:org_apache_hadoop_hadoop_client",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs",
+        "@maven//:org_apache_doris_hive_catalog_shade",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# max-compute-connector
+# =============================================================================
+
+java_library(
+    name = "max-compute-connector",
+    srcs = glob(["max-compute-connector/src/main/java/**/*.java"]),
+    deps = [
+        ":java-common",
+        "@maven//:com_aliyun_odps_odps_sdk_core",
+        "@maven//:com_aliyun_odps_odps_sdk_table_api",
+        "@maven//:org_apache_arrow_arrow_vector",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# hadoop-deps
+# =============================================================================
+
+java_library(
+    name = "hadoop-deps",
+    srcs = glob(["hadoop-deps/src/main/java/**/*.java"]),
+    exports = [
+        "@maven//:org_apache_hadoop_hadoop_hdfs",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_azure",
+        "@maven//:org_apache_hadoop_hadoop_auth",
+        "@maven//:org_apache_hadoop_hadoop_client",
+    ],
+    deps = [
+        "@maven//:com_fasterxml_woodstox_woodstox_core",
+        "@maven//:org_apache_commons_commons_collections4",
+        "@maven//:org_apache_commons_commons_configuration2",
+        "@maven//:org_apache_hadoop_hadoop_hdfs",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_azure",
+        "@maven//:org_apache_hadoop_hadoop_auth",
+        "@maven//:org_apache_hadoop_hadoop_mapreduce_client_core",
+        "@maven//:org_apache_hadoop_thirdparty_hadoop_shaded_protobuf_3_25",
+        "@maven//:com_huaweicloud_hadoop_huaweicloud",
+        "@maven//:org_apache_hadoop_hadoop_client",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# preload-extensions
+# =============================================================================
+
+java_library(
+    name = "preload-extensions",
+    srcs = glob(["preload-extensions/src/main/java/**/*.java"]),
+    deps = [
+        ":java-common",
+        "@maven//:org_apache_parquet_parquet_format",
+        "@maven//:org_apache_parquet_parquet_hadoop_bundle",
+        "@maven//:commons_io_commons_io",
+        "@maven//:org_apache_arrow_arrow_memory_unsafe",
+        "@maven//:org_apache_arrow_arrow_vector",
+        "@maven//:org_apache_paimon_paimon_s3",
+        "@maven//:org_apache_paimon_paimon_jindo",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_antlr_antlr4_runtime",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_zaxxer_HikariCP",
+        "@maven//:com_qcloud_cos_hadoop_cos",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_lang_commons_lang",
+        "@maven//:software_amazon_awssdk_s3",
+        "@maven//:software_amazon_awssdk_sts",
+        "@maven//:software_amazon_awssdk_glue",
+        "@maven//:software_amazon_awssdk_dynamodb",
+        "@maven//:software_amazon_awssdk_s3tables",
+        "@maven//:software_amazon_awssdk_s3_transfer_manager",
+        "@maven//:software_amazon_awssdk_sdk_core",
+        "@maven//:software_amazon_s3tables_s3_tables_catalog_for_iceberg",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# trino-connector-scanner
+# =============================================================================
+
+java_library(
+    name = "trino-connector-scanner",
+    srcs = glob(["trino-connector-scanner/src/main/java/**/*.java"]),
+    deps = [
+        ":preload-extensions",
+        "@maven//:io_trino_trino_main",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+# =============================================================================
+# java-writer
+# =============================================================================
+
+java_library(
+    name = "java-writer",
+    srcs = glob(["java-writer/src/main/java/**/*.java"]),
+    deps = [
+        ":java-common",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

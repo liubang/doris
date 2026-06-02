@@ -216,7 +216,7 @@ public class MetaHelper {
 
     public static <T> ResponseBody parseResponse(String response, Class<T> clazz) {
         return GsonUtils.GSON.fromJson(response,
-                com.google.gson.internal.$Gson$Types.newParameterizedTypeWithOwner(null, ResponseBody.class, clazz));
+                com.google.gson.internal.GsonTypes.newParameterizedTypeWithOwner(null, ResponseBody.class, clazz));
     }
 
 }

@@ -1,0 +1,7 @@
+"""Third-party Java libraries not available via standard Maven repositories."""
+
+java_import(
+    name = "je",
+    jars = ["je-18.3.14-doris.jar"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,372 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_plugin")
+load("//tools/bazel:antlr4.bzl", "antlr4_java_library")
+load("//tools/bazel:pattern_generator.bzl", "pattern_generator")
+
+package(default_visibility = ["//fe:__subpackages__"])
+
+# =============================================================================
+# ANTLR4 Grammar Code Generation
+# =============================================================================
+
+# Nereids SQL Parser (main SQL grammar)
+antlr4_java_library(
+    name = "nereids_parser_gen",
+    srcs = [
+        "src/main/antlr4/org/apache/doris/nereids/DorisLexer.g4",
+        "src/main/antlr4/org/apache/doris/nereids/DorisParser.g4",
+    ],
+    package = "org.apache.doris.nereids",
+)
+
+# Nereids PL/SQL Parser (imports DorisParser grammar)
+antlr4_java_library(
+    name = "nereids_pl_parser_gen",
+    srcs = [
+        "src/main/antlr4/org/apache/doris/nereids/PLLexer.g4",
+        "src/main/antlr4/org/apache/doris/nereids/PLParser.g4",
+    ],
+    imports = [
+        "src/main/antlr4/org/apache/doris/nereids/DorisLexer.g4",
+        "src/main/antlr4/org/apache/doris/nereids/DorisParser.g4",
+    ],
+    package = "org.apache.doris.nereids",
+)
+
+# Java Parser (used by PatternDescribableProcessor)
+antlr4_java_library(
+    name = "java_parser_gen",
+    srcs = [
+        "src/main/antlr4/org/apache/doris/nereids/JavaLexer.g4",
+        "src/main/antlr4/org/apache/doris/nereids/JavaParser.g4",
+    ],
+    package = "org.apache.doris.nereids",
+)
+
+# Search Parser
+antlr4_java_library(
+    name = "search_parser_gen",
+    srcs = [
+        "src/main/antlr4/org/apache/doris/nereids/search/SearchLexer.g4",
+        "src/main/antlr4/org/apache/doris/nereids/search/SearchParser.g4",
+    ],
+    package = "org.apache.doris.nereids.search",
+)
+
+# SQL Separator Parser
+antlr4_java_library(
+    name = "sql_separator_gen",
+    srcs = [
+        "src/main/antlr4/org/apache/doris/parser/DorisSqlSeparator.g4",
+    ],
+    package = "org.apache.doris.parser",
+)
+
+# =============================================================================
+# Custom Annotation Processor: PatternDescribableProcessor
+# =============================================================================
+
+# 注解处理器依赖 ANTLR4 生成的 JavaLexer/JavaParser
+java_library(
+    name = "pattern_generator_lib",
+    srcs = glob(["src/main/java/org/apache/doris/nereids/pattern/generator/**/*.java"]),
+    deps = [
+        ":java_parser_gen",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_io_commons_io",
+        "@maven//:org_antlr_antlr4_runtime",
+        "@maven//:org_apache_commons_commons_lang3",
+    ],
+)
+
+java_plugin(
+    name = "pattern_describable_plugin",
+    processor_class = "org.apache.doris.nereids.pattern.generator.PatternDescribableProcessor",
+    deps = [":pattern_generator_lib"],
+)
+
+# Standalone binary for pattern generation (replaces -proc:only approach)
+java_binary(
+    name = "pattern_generator_tool",
+    main_class = "org.apache.doris.nereids.pattern.generator.PatternGeneratorMain",
+    srcs = ["src/main/java/org/apache/doris/nereids/pattern/generator/PatternGeneratorMain.java"],
+    deps = [
+        ":pattern_generator_lib",
+        ":java_parser_gen",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_io_commons_io",
+        "@maven//:org_antlr_antlr4_runtime",
+        "@maven//:org_apache_commons_commons_lang3",
+    ],
+)
+
+# Generate pattern source files
+pattern_generator(
+    name = "generated_patterns",
+    srcs = glob(["src/main/java/org/apache/doris/nereids/**/*.java"]),
+    tool = ":pattern_generator_tool",
+)
+
+# =============================================================================
+# Lombok Annotation Processor
+# =============================================================================
+
+java_plugin(
+    name = "lombok_plugin",
+    processor_class = "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
+    deps = ["@maven//:org_projectlombok_lombok"],
+)
+
+# =============================================================================
+# Immutables Annotation Processor
+# =============================================================================
+
+java_plugin(
+    name = "immutables_plugin",
+    processor_class = "org.immutables.processor.ProxyProcessor",
+    deps = ["@maven//:org_immutables_value"],
+)
+
+# =============================================================================
+# FE Core Library
+# =============================================================================
+
+java_library(
+    name = "fe-core",
+    srcs = glob(
+        ["src/main/java/**/*.java"],
+        exclude = ["src/main/java/org/apache/doris/nereids/pattern/generator/**/*.java"],
+    ) + [":generated_patterns"],
+    javacopts = [
+        "-parameters",
+    ],
+    plugins = [
+        ":lombok_plugin",
+        ":immutables_plugin",
+    ],
+    resources = glob(["src/main/resources/**"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        # 内部模块
+        "//fe/fe-foundation",
+        "//fe/fe-common",
+        "//fe/fe-extension-spi",
+        "//fe/fe-extension-loader",
+        ":pattern_generator_lib",
+
+        # Generated Version class
+        "//gensrc:doris_version_java",
+
+        # ANTLR4 生成的 parser
+        ":nereids_parser_gen",
+        ":nereids_pl_parser_gen",
+        ":search_parser_gen",
+        ":sql_separator_gen",
+
+        # Protobuf / gRPC 生成代码
+        "//gensrc:doris_proto_java",
+        "//gensrc:doris_grpc_java",
+        "//gensrc:doris_thrift_java",
+
+        # --- Spring Boot ---
+        "@maven//:org_springframework_boot_spring_boot_starter_web",
+        "@maven//:org_springframework_boot_spring_boot_starter_jetty",
+        "@maven//:org_springframework_boot_spring_boot_starter",
+        "@maven//:org_springframework_boot_spring_boot_starter_data_ldap",
+        "@maven//:org_springframework_boot_spring_boot_devtools",
+        "@maven//:org_springframework_boot_spring_boot_configuration_processor",
+
+        # --- Logging ---
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_apache_logging_log4j_log4j_core",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+        "@maven//:org_apache_logging_log4j_log4j_slf4j2_impl",
+        "@maven//:com_lmax_disruptor",
+
+        # --- Jackson ---
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_dataformat_jackson_dataformat_yaml",
+        "@maven//:com_fasterxml_jackson_module_jackson_module_jaxb_annotations",
+
+        # --- Netty ---
+        "@maven//:io_netty_netty_all",
+        "@maven//:io_netty_netty_buffer",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:io_netty_netty_transport",
+
+        # --- Guava ---
+        "@maven//:com_google_guava_guava",
+
+        # --- Apache Commons ---
+        "@maven//:commons_cli_commons_cli",
+        "@maven//:commons_codec_commons_codec",
+        "@maven//:commons_io_commons_io",
+        "@maven//:commons_fileupload_commons_fileupload",
+        "@maven//:commons_pool_commons_pool",
+        "@maven//:commons_validator_commons_validator",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_commons_commons_math3",
+        "@maven//:org_apache_commons_commons_pool2",
+        "@maven//:org_apache_commons_commons_text",
+
+        # --- Hadoop ---
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs",
+        "@maven//:org_apache_hadoop_hadoop_client",
+        "@maven//:org_apache_hadoop_hadoop_auth",
+        "@maven//:org_apache_hadoop_hadoop_aws",
+        "@maven//:org_apache_hadoop_hadoop_azure",
+
+        # --- Arrow / Flight SQL ---
+        "@maven//:org_apache_arrow_arrow_vector",
+        "@maven//:org_apache_arrow_arrow_memory_core",
+        "@maven//:org_apache_arrow_arrow_memory_netty",
+        "@maven//:org_apache_arrow_arrow_memory_netty_buffer_patch",
+        "@maven//:org_apache_arrow_arrow_jdbc",
+        "@maven//:org_apache_arrow_flight_core",
+        "@maven//:org_apache_arrow_flight_sql",
+        "@maven//:org_apache_arrow_flight_sql_jdbc_driver",
+
+        # --- Iceberg ---
+        "@maven//:org_apache_iceberg_iceberg_core",
+        "@maven//:org_apache_iceberg_iceberg_aws",
+
+        # --- Paimon ---
+        "@maven//:org_apache_paimon_paimon_core",
+        "@maven//:org_apache_paimon_paimon_common",
+        "@maven//:org_apache_paimon_paimon_format",
+        "@maven//:org_apache_paimon_paimon_s3",
+        "@maven//:org_apache_paimon_paimon_jindo",
+
+        # --- Hudi ---
+        "@maven//:org_apache_hudi_hudi_common",
+        "@maven//:org_apache_hudi_hudi_hadoop_mr",
+
+        # --- Avro / Parquet ---
+        "@maven//:org_apache_avro_avro",
+        "@maven//:org_apache_parquet_parquet_avro",
+
+        # --- gRPC ---
+        "@maven//:io_grpc_grpc_netty_shaded",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_context",
+        "@maven//:io_grpc_grpc_api",
+
+        # --- Protobuf ---
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_squareup_protoparser",
+
+        # --- AWS ---
+        "@maven//:com_amazonaws_aws_java_sdk_s3",
+        "@maven//:com_amazonaws_aws_java_sdk_glue",
+        "@maven//:com_amazonaws_aws_java_sdk_dynamodb",
+        "@maven//:com_amazonaws_aws_java_sdk_logs",
+        "@maven//:com_amazonaws_aws_java_sdk_sts",
+        "@maven//:software_amazon_awssdk_s3",
+        "@maven//:software_amazon_awssdk_glue",
+        "@maven//:software_amazon_awssdk_sts",
+        "@maven//:software_amazon_awssdk_s3_transfer_manager",
+        "@maven//:software_amazon_awssdk_url_connection_client",
+        "@maven//:software_amazon_awssdk_sdk_core",
+        "@maven//:software_amazon_awssdk_s3tables",
+        "@maven//:software_amazon_s3tables_s3_tables_catalog_for_iceberg",
+
+        # --- Azure ---
+        "@maven//:com_azure_azure_storage_blob",
+        "@maven//:com_azure_azure_identity",
+        "@maven//:com_azure_azure_storage_blob_batch",
+
+        # --- Cloud SDKs ---
+        "@maven//:com_aliyun_oss_aliyun_sdk_oss",
+        "@maven//:com_aliyun_odps_odps_sdk_core",
+        "@maven//:com_aliyun_odps_odps_sdk_table_api",
+        "@maven//:com_qcloud_cos_api",
+        "@maven//:com_qcloud_qcloud_java_sdk",
+        "@maven//:com_qcloud_cos_hadoop_cos",
+        "@maven//:com_tencentcloudapi_tencentcloud_sdk_java_sts",
+        "@maven//:com_huaweicloud_esdk_obs_java_bundle",
+        "@maven//:com_huaweicloud_hadoop_huaweicloud",
+        "@maven//:com_huaweicloud_sdk_huaweicloud_sdk_iam",
+        "@maven//:com_baidubce_bce_java_sdk",
+
+        # --- Database ---
+        "@maven//:org_mariadb_jdbc_mariadb_java_client",
+        "@maven//:com_zaxxer_HikariCP",
+        "@maven//:org_apache_kafka_kafka_clients",
+
+        # --- HTTP ---
+        "@maven//:org_apache_httpcomponents_httpclient",
+        "@maven//:com_squareup_okhttp3_okhttp_jvm",
+
+        # --- Serialization ---
+        "@maven//:com_google_code_gson_gson",
+        "@maven//:com_google_flatbuffers_flatbuffers_java",
+        "@maven//:org_xerial_snappy_snappy_java",
+        "@maven//:com_esotericsoftware_kryo_shaded",
+        "@maven//:com_googlecode_json_simple_json_simple",
+
+        # --- LakeSoul ---
+        "@maven//:com_dmetasoul_lakesoul_io_java",
+        "@maven//:com_alibaba_fastjson",
+        "@maven//:io_substrait_core",
+
+        # --- Misc ---
+        "@maven//:cglib_cglib",
+        "@maven//:com_google_re2j_re2j",
+        "@maven//:com_googlecode_java_ipv6_java_ipv6",
+        "@maven//:net_java_dev_jna_jna",
+        "@maven//:net_java_dev_jna_jna_platform",
+        "@maven//:com_ibm_icu_icu4j",
+        "@maven//:org_objenesis_objenesis",
+        "@maven//:org_roaringbitmap_RoaringBitmap",
+        "@maven//:hu_webarticum_tree_printer",
+        "@maven//:org_hamcrest_hamcrest",
+        "@maven//:it_unimi_dsi_fastutil_core",
+        "@maven//:me_bechberger_ap_loader_all",
+        "@maven//:com_taobao_arthas_arthas_packaging",
+        "@maven//:io_airlift_concurrent",
+        "@maven//:org_apache_thrift_libthrift",
+        "@maven//:org_antlr_antlr4_runtime",
+        "@maven//:joda_time_joda_time",
+
+        # --- Jetty ---
+        "@maven//:org_eclipse_jetty_jetty_servlet",
+
+        # --- Ranger ---
+        "@maven//:org_apache_ranger_ranger_plugins_common",
+
+        # --- Trino ---
+        "@maven//:io_trino_trino_main",
+
+        # --- Hive ---
+        "@maven//:org_apache_doris_hive_catalog_shade",
+
+        # --- Berkeley DB JE ---
+        "//third_party/java:je",
+
+        # --- Javax / Jakarta ---
+        "@maven//:javax_annotation_javax_annotation_api",
+        "@maven//:com_sun_activation_javax_activation",
+        "@maven//:org_jboss_xnio_xnio_nio",
+
+        # --- Annotation Processing (compile-only) ---
+        "@maven//:org_projectlombok_lombok",
+        "@maven//:org_immutables_value",
+        "@maven//:org_awaitility_awaitility",
+    ],
+)
+
+# =============================================================================
+# FE Main Binary
+# =============================================================================
+
+java_binary(
+    name = "doris-fe",
+    main_class = "org.apache.doris.DorisFE",
+    visibility = ["//visibility:public"],
+    runtime_deps = [":fe-core"],
+)

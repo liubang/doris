@@ -1,0 +1,81 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(default_visibility = ["//fe:__subpackages__"])
+
+# =============================================================================
+# fe-authentication-api
+# =============================================================================
+
+java_library(
+    name = "fe-authentication-api",
+    srcs = glob(["fe-authentication-api/src/main/java/**/*.java"]),
+    deps = [
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_apache_logging_log4j_log4j_core",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+    ],
+)
+
+# =============================================================================
+# fe-authentication-spi
+# =============================================================================
+
+java_library(
+    name = "fe-authentication-spi",
+    srcs = glob(["fe-authentication-spi/src/main/java/**/*.java"]),
+    deps = [
+        ":fe-authentication-api",
+        "//fe/fe-extension-spi",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+    ],
+)
+
+# =============================================================================
+# fe-authentication-handler
+# =============================================================================
+
+java_library(
+    name = "fe-authentication-handler",
+    srcs = glob(["fe-authentication-handler/src/main/java/**/*.java"]),
+    deps = [
+        ":fe-authentication-api",
+        ":fe-authentication-spi",
+        "//fe/fe-extension-loader",
+        "//fe/fe-extension-spi",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+    ],
+)
+
+# =============================================================================
+# fe-authentication-plugin-password
+# =============================================================================
+
+java_library(
+    name = "fe-authentication-plugin-password",
+    srcs = glob(["fe-authentication-plugins/fe-authentication-plugin-password/src/main/java/**/*.java"]),
+    deps = [
+        ":fe-authentication-api",
+        ":fe-authentication-spi",
+        "@maven//:org_mindrot_jbcrypt",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+        "@maven//:com_google_guava_guava",
+    ],
+)
+
+# =============================================================================
+# fe-authentication-plugin-ldap
+# =============================================================================
+
+java_library(
+    name = "fe-authentication-plugin-ldap",
+    srcs = glob(["fe-authentication-plugins/fe-authentication-plugin-ldap/src/main/java/**/*.java"]),
+    deps = [
+        ":fe-authentication-api",
+        ":fe-authentication-spi",
+        "@maven//:org_springframework_ldap_spring_ldap_core",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+        "@maven//:com_google_guava_guava",
+    ],
+)

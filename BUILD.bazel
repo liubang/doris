@@ -1,0 +1,5 @@
+# Apache Doris - Root BUILD file
+exports_files([
+    "maven_install.json",
+    "MODULE.bazel",
+])

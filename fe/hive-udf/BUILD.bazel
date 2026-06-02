@@ -1,0 +1,13 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(default_visibility = ["//fe:__subpackages__"])
+
+java_library(
+    name = "hive-udf",
+    srcs = glob(["src/main/java/**/*.java"]),
+    deps = [
+        "//fe/fe-common",
+        "@maven//:org_apache_hive_hive_exec",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

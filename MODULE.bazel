@@ -1,0 +1,387 @@
+"""Apache Doris FE - Bazel Build System (Bzlmod)"""
+
+module(
+    name = "doris",
+    version = "4.1.1",
+)
+
+# =============================================================================
+# Core Build Rules
+# =============================================================================
+
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_java", version = "9.6.1")
+bazel_dep(name = "rules_jvm_external", version = "7.0")
+bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "protobuf", version = "29.3")  # resolved to 33.4 via MVS
+
+# =============================================================================
+# Java Toolchain (use remote JDK 17 via .bazelrc)
+# =============================================================================
+
+# =============================================================================
+# Maven Dependencies
+# =============================================================================
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+
+# BOMs for version management
+NETTY_VERSION = "4.1.130.Final"
+GRPC_VERSION = "1.65.1"
+JACKSON_VERSION = "2.16.0"
+SPRING_BOOT_VERSION = "3.5.7"
+SPRING_FRAMEWORK_VERSION = "6.2.12"
+AWS_SDK_V2_VERSION = "2.29.52"
+AWS_SDK_V1_VERSION = "1.12.669"
+HADOOP_VERSION = "3.4.2"
+ARROW_VERSION = "17.0.0"
+ICEBERG_VERSION = "1.10.1"
+PAIMON_VERSION = "1.3.1"
+HUDI_VERSION = "1.0.2"
+LOG4J_VERSION = "2.25.3"
+SLF4J_VERSION = "2.0.17"
+PROTOBUF_VERSION = "3.25.8"
+JETTY_VERSION = "12.0.29"
+ANTLR4_VERSION = "4.13.1"
+JUNIT_VERSION = "5.14.1"
+THRIFT_VERSION = "0.16.0"
+AVRO_VERSION = "1.12.1"
+PARQUET_VERSION = "1.17.0"
+
+maven.install(
+    known_contributing_modules = ["protobuf"],
+    artifacts = [
+        # --- BOMs ---
+        "io.netty:netty-bom:%s" % NETTY_VERSION,
+        "io.grpc:grpc-bom:%s" % GRPC_VERSION,
+        "com.fasterxml.jackson:jackson-bom:%s" % JACKSON_VERSION,
+        "org.junit:junit-bom:%s" % JUNIT_VERSION,
+        "org.springframework.boot:spring-boot-dependencies:%s" % SPRING_BOOT_VERSION,
+        "org.springframework:spring-framework-bom:%s" % SPRING_FRAMEWORK_VERSION,
+        "software.amazon.awssdk:bom:%s" % AWS_SDK_V2_VERSION,
+
+        # --- ANTLR4 (tool + runtime) ---
+        "org.antlr:antlr4:%s" % ANTLR4_VERSION,
+        "org.antlr:antlr4-runtime:%s" % ANTLR4_VERSION,
+
+        # --- Thrift ---
+        "org.apache.thrift:libthrift:%s" % THRIFT_VERSION,
+
+        # --- Protobuf ---
+        "com.google.protobuf:protobuf-java:%s" % PROTOBUF_VERSION,
+        "com.google.protobuf:protobuf-java-util:%s" % PROTOBUF_VERSION,
+
+        # --- gRPC ---
+        "io.grpc:grpc-netty-shaded:%s" % GRPC_VERSION,
+        "io.grpc:grpc-netty:%s" % GRPC_VERSION,
+        "io.grpc:grpc-protobuf:%s" % GRPC_VERSION,
+        "io.grpc:grpc-stub:%s" % GRPC_VERSION,
+        "io.grpc:grpc-core:%s" % GRPC_VERSION,
+        "io.grpc:grpc-context:%s" % GRPC_VERSION,
+        "io.grpc:grpc-api:%s" % GRPC_VERSION,
+
+        # --- Spring Boot ---
+        "org.springframework.boot:spring-boot-starter-web:%s" % SPRING_BOOT_VERSION,
+        "org.springframework.boot:spring-boot-starter-jetty:%s" % SPRING_BOOT_VERSION,
+        "org.springframework.boot:spring-boot-starter:%s" % SPRING_BOOT_VERSION,
+        "org.springframework.boot:spring-boot-starter-data-ldap:%s" % SPRING_BOOT_VERSION,
+        "org.springframework.boot:spring-boot-devtools:%s" % SPRING_BOOT_VERSION,
+        "org.springframework.boot:spring-boot-configuration-processor:%s" % SPRING_BOOT_VERSION,
+        "org.springframework.ldap:spring-ldap-core:3.2.10",
+
+        # --- Logging ---
+        "org.apache.logging.log4j:log4j-core:%s" % LOG4J_VERSION,
+        "org.apache.logging.log4j:log4j-api:%s" % LOG4J_VERSION,
+        "org.apache.logging.log4j:log4j-slf4j2-impl:%s" % LOG4J_VERSION,
+        "org.apache.logging.log4j:log4j-iostreams:%s" % LOG4J_VERSION,
+        "org.apache.logging.log4j:log4j-1.2-api:%s" % LOG4J_VERSION,
+        "org.slf4j:slf4j-api:%s" % SLF4J_VERSION,
+        "org.slf4j:jcl-over-slf4j:%s" % SLF4J_VERSION,
+        "com.lmax:disruptor:3.4.4",
+
+        # --- Jackson ---
+        "com.fasterxml.jackson.core:jackson-core:%s" % JACKSON_VERSION,
+        "com.fasterxml.jackson.core:jackson-databind:%s" % JACKSON_VERSION,
+        "com.fasterxml.jackson.core:jackson-annotations:%s" % JACKSON_VERSION,
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:%s" % JACKSON_VERSION,
+        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:%s" % JACKSON_VERSION,
+
+        # --- Netty ---
+        "io.netty:netty-all:%s" % NETTY_VERSION,
+        "io.netty:netty-buffer:%s" % NETTY_VERSION,
+        "io.netty:netty-handler:%s" % NETTY_VERSION,
+        "io.netty:netty-transport:%s" % NETTY_VERSION,
+
+        # --- Guava ---
+        "com.google.guava:guava:33.2.1-jre",
+        "com.google.guava:guava-testlib:33.2.1-jre",
+
+        # --- Apache Commons ---
+        "commons-cli:commons-cli:1.4",
+        "commons-codec:commons-codec:1.13",
+        "commons-io:commons-io:2.18.0",
+        "commons-fileupload:commons-fileupload:1.6.0",
+        "commons-pool:commons-pool:1.5.1",
+        "commons-validator:commons-validator:1.9.0",
+        "commons-beanutils:commons-beanutils:1.11.0",
+        "commons-lang:commons-lang:2.6",
+        "org.apache.commons:commons-lang3:3.19.0",
+        "org.apache.commons:commons-math3:3.6.1",
+        "org.apache.commons:commons-pool2:2.2",
+        "org.apache.commons:commons-text:1.10.0",
+        "org.apache.commons:commons-collections4:4.5.0",
+        "org.apache.commons:commons-compress:1.27.1",
+        "org.apache.commons:commons-configuration2:2.11.0",
+
+        # --- Hadoop ---
+        "org.apache.hadoop:hadoop-common:%s" % HADOOP_VERSION,
+        "org.apache.hadoop:hadoop-hdfs:%s" % HADOOP_VERSION,
+        "org.apache.hadoop:hadoop-client:%s" % HADOOP_VERSION,
+        "org.apache.hadoop:hadoop-auth:%s" % HADOOP_VERSION,
+        "org.apache.hadoop:hadoop-aws:%s" % HADOOP_VERSION,
+        "org.apache.hadoop:hadoop-azure:%s" % HADOOP_VERSION,
+        "org.apache.hadoop:hadoop-mapreduce-client-core:%s" % HADOOP_VERSION,
+        "org.apache.hadoop.thirdparty:hadoop-shaded-guava:1.2.0",
+        "org.apache.hadoop.thirdparty:hadoop-shaded-protobuf_3_25:1.5.0",
+
+        # --- Arrow / Flight SQL ---
+        "org.apache.arrow:arrow-vector:%s" % ARROW_VERSION,
+        "org.apache.arrow:arrow-memory-core:%s" % ARROW_VERSION,
+        "org.apache.arrow:arrow-memory-netty:%s" % ARROW_VERSION,
+        "org.apache.arrow:arrow-memory-netty-buffer-patch:%s" % ARROW_VERSION,
+        "org.apache.arrow:arrow-memory-unsafe:%s" % ARROW_VERSION,
+        "org.apache.arrow:arrow-jdbc:%s" % ARROW_VERSION,
+        "org.apache.arrow:flight-core:%s" % ARROW_VERSION,
+        "org.apache.arrow:flight-sql:%s" % ARROW_VERSION,
+        "org.apache.arrow:flight-sql-jdbc-driver:%s" % ARROW_VERSION,
+
+        # --- Iceberg ---
+        "org.apache.iceberg:iceberg-core:%s" % ICEBERG_VERSION,
+        "org.apache.iceberg:iceberg-api:%s" % ICEBERG_VERSION,
+        "org.apache.iceberg:iceberg-aws:%s" % ICEBERG_VERSION,
+
+        # --- Paimon ---
+        "org.apache.paimon:paimon-core:%s" % PAIMON_VERSION,
+        "org.apache.paimon:paimon-common:%s" % PAIMON_VERSION,
+        "org.apache.paimon:paimon-format:%s" % PAIMON_VERSION,
+        "org.apache.paimon:paimon-s3:%s" % PAIMON_VERSION,
+        "org.apache.paimon:paimon-jindo:%s" % PAIMON_VERSION,
+        "org.apache.paimon:paimon-hive-connector-3.1:%s" % PAIMON_VERSION,
+
+        # --- Hudi ---
+        "org.apache.hudi:hudi-common:%s" % HUDI_VERSION,
+        "org.apache.hudi:hudi-hadoop-mr:%s" % HUDI_VERSION,
+        "org.apache.hudi:hudi-io:%s" % HUDI_VERSION,
+
+        # --- Avro / Parquet ---
+        "org.apache.avro:avro:%s" % AVRO_VERSION,
+        "org.apache.avro:avro-ipc:%s" % AVRO_VERSION,
+        "org.apache.avro:avro-mapred:%s" % AVRO_VERSION,
+        "org.apache.parquet:parquet-avro:%s" % PARQUET_VERSION,
+        "org.apache.parquet:parquet-column:%s" % PARQUET_VERSION,
+        "org.apache.parquet:parquet-hadoop:%s" % PARQUET_VERSION,
+        "org.apache.parquet:parquet-common:%s" % PARQUET_VERSION,
+        "org.apache.parquet:parquet-format:2.12.0",
+        "org.apache.parquet:parquet-hadoop-bundle:%s" % PARQUET_VERSION,
+
+        # --- AWS SDK v1 ---
+        "com.amazonaws:aws-java-sdk-s3:%s" % AWS_SDK_V1_VERSION,
+        "com.amazonaws:aws-java-sdk-glue:%s" % AWS_SDK_V1_VERSION,
+        "com.amazonaws:aws-java-sdk-dynamodb:%s" % AWS_SDK_V1_VERSION,
+        "com.amazonaws:aws-java-sdk-logs:%s" % AWS_SDK_V1_VERSION,
+        "com.amazonaws:aws-java-sdk-sts:%s" % AWS_SDK_V1_VERSION,
+
+        # --- AWS SDK v2 ---
+        "software.amazon.awssdk:s3:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:glue:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:sts:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:kms:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:dynamodb:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:s3tables:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:s3-transfer-manager:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:url-connection-client:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:aws-json-protocol:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:protocol-core:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:sdk-core:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.awssdk:auth:%s" % AWS_SDK_V2_VERSION,
+        "software.amazon.s3tables:s3-tables-catalog-for-iceberg:0.1.4",
+
+        # --- Azure ---
+        "com.azure:azure-storage-blob:12.29.0",
+        "com.azure:azure-identity:1.14.2",
+        "com.azure:azure-storage-blob-batch:12.22.0",
+
+        # --- Tencent Cloud ---
+        "com.qcloud:cos_api:5.6.211",
+        "com.qcloud:qcloud-java-sdk:2.0.1",
+        "com.qcloud.cos:hadoop-cos:8.2.7",
+        "com.tencentcloudapi:tencentcloud-sdk-java-sts:3.1.678",
+
+        # --- Huawei Cloud ---
+        "com.huaweicloud:esdk-obs-java-bundle:3.21.11",
+        "com.huaweicloud:hadoop-huaweicloud:3.1.1-hw-46",
+        "com.huaweicloud.sdk:huaweicloud-sdk-iam:3.1.20",
+
+        # --- Aliyun ---
+        "com.aliyun.oss:aliyun-sdk-oss:3.15.0",
+        "com.aliyun.odps:odps-sdk-core:0.53.2-public",
+        "com.aliyun.odps:odps-sdk-table-api:0.53.2-public",
+        "com.aliyun:tea:1.4.1",
+
+        # --- Baidu ---
+        "com.baidubce:bce-java-sdk:0.10.212",
+
+        # --- Database ---
+        "org.mariadb.jdbc:mariadb-java-client:3.0.9",
+        "com.zaxxer:HikariCP:6.0.0",
+        "org.apache.kafka:kafka-clients:3.4.0",
+        "org.postgresql:postgresql:42.7.3",
+
+        # --- HTTP ---
+        "org.apache.httpcomponents:httpclient:4.5.13",
+        "org.apache.httpcomponents:httpcore:4.4.15",
+        "com.squareup.okhttp3:okhttp-jvm:5.3.2",
+        "com.squareup.okhttp3:logging-interceptor:5.3.2",
+
+        # --- Serialization ---
+        "com.google.code.gson:gson:2.10.1",
+        "com.google.flatbuffers:flatbuffers-java:1.12.0",
+        "org.xerial.snappy:snappy-java:1.1.10.5",
+        "com.esotericsoftware:kryo-shaded:4.0.2",
+        "com.squareup:protoparser:3.1.5",
+        "com.googlecode.json-simple:json-simple:1.1.1",
+
+        # --- Misc ---
+        "cglib:cglib:2.2",
+        "com.google.re2j:re2j:1.8",
+        "com.googlecode.java-ipv6:java-ipv6:0.17",
+        "net.java.dev.jna:jna:5.13.0",
+        "net.java.dev.jna:jna-platform:5.13.0",
+        "com.ibm.icu:icu4j:78.1",
+        "org.objenesis:objenesis:2.1",
+        "org.roaringbitmap:RoaringBitmap:0.8.13",
+        "hu.webarticum:tree-printer:1.2",
+        "org.hamcrest:hamcrest:2.1",
+        "it.unimi.dsi:fastutil-core:8.5.18",
+        "org.semver4j:semver4j:5.3.0",
+        "me.bechberger:ap-loader-all:3.0-8",
+        "com.taobao.arthas:arthas-packaging:4.0.5",
+        "io.airlift:concurrent:202",
+        "io.airlift:aircompressor:2.0.3",
+        "com.github.luben:zstd-jni:1.5.4-2",
+        "joda-time:joda-time:2.8.1",
+        "org.yaml:snakeyaml:2.0",
+        "org.javassist:javassist:3.18.2-GA",
+        "io.dropwizard.metrics:metrics-core:4.0.2",
+        "org.mindrot:jbcrypt:0.4",
+        "com.esotericsoftware:reflectasm:1.11.9",
+
+        # --- Jetty ---
+        "org.eclipse.jetty:jetty-servlet:11.0.26",
+
+        # --- Ranger ---
+        "org.apache.ranger:ranger-plugins-common:2.8.0",
+
+        # --- Trino ---
+        "io.trino:trino-main:435",
+
+        # --- Hive ---
+        "org.apache.hive:hive-common:2.3.9",
+        "org.apache.hive:hive-exec:3.1.3",
+        "org.apache.doris:hive-catalog-shade:3.1.1",
+        "io.trino.hive:hive-apache:3.1.2-22",
+
+        # --- HBase ---
+        "org.apache.hbase:hbase-server:2.6.3",
+        "org.apache.hbase:hbase-client:2.6.3",
+
+        # --- Zookeeper ---
+        "org.apache.zookeeper:zookeeper:3.9.3",
+
+        # --- ORC ---
+        "org.apache.orc:orc-core:1.8.4",
+
+        # --- LakeSoul ---
+        "com.dmetasoul:lakesoul-io-java:2.6.2",
+        "com.alibaba:fastjson:1.2.83",
+        "io.substrait:core:0.30.0",
+
+        # --- MaxCompute ---
+        # (already declared above via aliyun odps)
+
+        # --- Scala ---
+        "org.scala-lang:scala-library:2.12.10",
+
+        # --- Velocity ---
+        "org.apache.velocity:velocity-engine-core:2.4",
+
+        # --- Annotation Processing ---
+        "org.projectlombok:lombok:1.18.40",
+        "org.immutables:value:2.9.3",
+
+        # --- Javax / Jakarta ---
+        "javax.annotation:javax.annotation-api:1.3.2",
+        "javax.validation:validation-api:2.0.1.Final",
+        "com.sun.activation:javax.activation:1.2.0",
+        "jakarta.annotation:jakarta.annotation-api:2.1.1",
+
+        # --- Wildfly ---
+        "org.wildfly.openssl:wildfly-openssl:2.2.5.Final",
+        "org.wildfly.common:wildfly-common:2.0.1",
+        "org.jboss.xnio:xnio-nio:3.8.14.Final",
+        "org.jboss.xnio:xnio-api:3.8.14.Final",
+
+        # --- Bouncy Castle ---
+        "org.bouncycastle:bcprov-jdk15on:1.70",
+
+        # --- Testing ---
+        "org.junit.jupiter:junit-jupiter-engine:%s" % JUNIT_VERSION,
+        "org.junit.jupiter:junit-jupiter-params:%s" % JUNIT_VERSION,
+        "org.junit.jupiter:junit-jupiter-api:%s" % JUNIT_VERSION,
+        "org.junit.platform:junit-platform-launcher:1.14.1",
+        "org.mockito:mockito-core:4.11.0",
+        "org.mockito:mockito-inline:4.11.0",
+        "org.mockito:mockito-junit-jupiter:4.11.0",
+        "org.jmockit:jmockit:1.49",
+        "org.awaitility:awaitility:4.2.2",
+
+        # --- Berkeley DB JE (Doris fork) ---
+        # NOTE: je is provided as a local jar in //third_party/java:je
+        # because Apache Snapshots repo is unreliable for Coursier resolution.
+    ],
+    boms = [
+        "io.netty:netty-bom:%s" % NETTY_VERSION,
+        "io.grpc:grpc-bom:%s" % GRPC_VERSION,
+        "com.fasterxml.jackson:jackson-bom:%s" % JACKSON_VERSION,
+        "org.junit:junit-bom:%s" % JUNIT_VERSION,
+        "org.springframework.boot:spring-boot-dependencies:%s" % SPRING_BOOT_VERSION,
+        "org.springframework:spring-framework-bom:%s" % SPRING_FRAMEWORK_VERSION,
+        "software.amazon.awssdk:bom:%s" % AWS_SDK_V2_VERSION,
+    ],
+    excluded_artifacts = [
+        "ch.qos.logback:logback-classic",
+        "ch.qos.logback:logback-core",
+        "org.slf4j:slf4j-log4j12",
+        "org.slf4j:slf4j-reload4j",
+        "log4j:log4j",
+        "org.apache.logging.log4j:log4j-to-slf4j",
+    ],
+    fail_if_repin_required = True,
+    fetch_sources = True,
+    lock_file = "//:maven_install.json",
+    repositories = [
+        "https://repo1.maven.org/maven2",
+        "https://repository.apache.org/content/repositories/snapshots/",
+        "https://repo.huaweicloud.com/repository/maven/huaweicloudsdk/",
+        "https://maven.aliyun.com/repository/public",
+    ],
+)
+use_repo(maven, "maven")
+
+# =============================================================================
+# Doris Build Tools (thrift compiler, grpc-java plugin)
+# =============================================================================
+
+doris_tools = use_extension("//tools/bazel:extensions.bzl", "doris_tools")
+use_repo(doris_tools, "thrift_compiler", "grpc_java_plugin")
