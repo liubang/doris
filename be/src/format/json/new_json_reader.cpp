@@ -26,7 +26,7 @@
 #include <rapidjson/reader.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include <simdjson/simdjson.h> // IWYU pragma: keep
+#include <simdjson.h> // IWYU pragma: keep
 
 #include <algorithm>
 #include <cinttypes>

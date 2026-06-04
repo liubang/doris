@@ -1,5 +1,9 @@
 # =============================================================================
-# Apache Doris FE - Bazel Build Configuration
+# Apache Doris - Bazel Build Configuration
+# =============================================================================
+
+# =============================================================================
+# Java (FE) Configuration
 # =============================================================================
 
 # --- Java Toolchain ---
@@ -8,25 +12,94 @@ build --java_runtime_version=remotejdk_17
 build --tool_java_language_version=17
 build --tool_java_runtime_version=remotejdk_17
 
-# --- Build Performance ---
-build --jobs=auto
-build --experimental_worker_multiplex_sandboxing
-build --experimental_reuse_sandbox_directories
-
-# --- Strict Java Deps ---
-build --experimental_strict_java_deps=warn
-
 # --- Disable header jar compilation (required for Lombok cross-module support) ---
 build --nojava_header_compilation
 
 # --- Disable Error Prone checks that conflict with existing Doris code ---
 build --javacopt="-XepDisableAllChecks"
 
-# --- Module version check (protobuf resolved to higher version via MVS) ---
-common --check_direct_dependencies=off
+# --- Strict Java Deps ---
+build --experimental_strict_java_deps=warn
 
 # --- Error Prone (disabled by default, enable with --config=errorprone) ---
 build:errorprone --extra_toolchains=@rules_java//java/toolchains/error_prone:error_prone_java_toolchain
+
+# =============================================================================
+# C++ (BE) Configuration
+# =============================================================================
+
+# --- C++ Standard ---
+build --cxxopt=-std=c++20
+build --host_cxxopt=-std=c++20
+build --conlyopt=-std=c17
+build --host_conlyopt=-std=c17
+
+# --- Common C++ Compiler Flags ---
+# NOTE: -Wall/-Wextra/-Werror are NOT set globally to avoid breaking
+# third-party code (rules_foreign_cc, BCR deps). They are applied
+# per-package in BE BUILD files via copts.
+build --copt=-fPIC
+build --copt=-fno-omit-frame-pointer
+build --copt=-g
+
+# --- Linker Flags ---
+build --linkopt=-pthread
+
+# --- Platform-specific C++ flags ---
+build:linux --copt=-DBOOST_STACKTRACE_USE_BACKTRACE
+build:linux --linkopt=-lrt
+build:linux --linkopt=-ldl
+
+build:macos --copt=-DBOOST_STACKTRACE_USE_ADDR2LINE
+build:macos --copt=-Wno-deprecated-declarations
+
+# --- x86_64 SIMD ---
+build:x86_64 --copt=-msse4.2
+build:x86_64 --copt=-mavx2
+
+# --- ARM ---
+build:aarch64 --copt=-march=armv8-a+crc
+
+# --- Build type: Release (default) ---
+build --copt=-O2
+build --copt=-DNDEBUG
+
+# --- Build type: Debug ---
+build:dbg --copt=-O0
+build:dbg --copt=-UNDEBUG
+build:dbg --compilation_mode=dbg
+
+# --- Build type: ASAN ---
+build:asan --copt=-fsanitize=address
+build:asan --copt=-fno-omit-frame-pointer
+build:asan --copt=-DADDRESS_SANITIZER
+build:asan --linkopt=-fsanitize=address
+build:asan --compilation_mode=dbg
+
+# --- Build type: TSAN ---
+build:tsan --copt=-fsanitize=thread
+build:tsan --copt=-DTHREAD_SANITIZER
+build:tsan --linkopt=-fsanitize=thread
+build:tsan --compilation_mode=dbg
+
+# --- Build type: UBSAN ---
+build:ubsan --copt=-fsanitize=undefined
+build:ubsan --copt=-fno-sanitize=alignment
+build:ubsan --copt=-DUNDEFINED_BEHAVIOR_SANITIZER
+build:ubsan --linkopt=-fsanitize=undefined
+build:ubsan --compilation_mode=dbg
+
+# =============================================================================
+# General Build Settings
+# =============================================================================
+
+# --- Build Performance ---
+build --jobs=HOST_CPUS*.6
+build --experimental_worker_multiplex_sandboxing
+build --experimental_reuse_sandbox_directories
+
+# --- Module version check (protobuf resolved to higher version via MVS) ---
+common --check_direct_dependencies=off
 
 # --- Platform-specific configurations ---
 build:linux --host_platform=@platforms//os:linux
@@ -41,7 +114,7 @@ test --test_verbose_timeout_warnings
 
 # --- Coverage ---
 coverage --combined_report=lcov
-coverage --instrumentation_filter="//fe[/:]"
+coverage --instrumentation_filter="//fe[/:],-//be[/:]"
 
 # --- Import user-specific settings ---
 try-import %workspace%/user.bazelrc

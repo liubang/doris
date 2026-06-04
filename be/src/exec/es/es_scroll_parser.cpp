@@ -215,7 +215,7 @@ Status get_date_value_int(const rapidjson::Value& col, PrimitiveType type, bool 
                 fmt = "%Y-%m-%dT%H:%M:%E*S%Ez";
                 cctz::time_zone ctz;
                 // find time_zone by time_zone suffix string
-                TimezoneUtils::find_cctz_time_zone(value.as_string(), ctz);
+                TimezoneUtils::find_cctz_time_zone(std::string(value), ctz);
                 ok = cctz::parse(fmt, str_date, ctz, &tp);
             } else {
                 // without time_zone info

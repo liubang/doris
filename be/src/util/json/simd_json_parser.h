@@ -61,7 +61,7 @@ public:
             return element.type() == simdjson::dom::element_type::OBJECT;
         }
         ALWAYS_INLINE bool isBool() const {
-            return element.type() == simdjson::dom::element_type::BOOLEAN;
+            return element.type() == simdjson::dom::element_type::BOOL;
         }
         ALWAYS_INLINE bool isNull() const {
             return element.type() == simdjson::dom::element_type::NULL_VALUE;

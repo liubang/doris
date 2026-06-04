@@ -1,0 +1,18 @@
+--- a/src/shared/CMakeLists.txt
++++ b/src/shared/CMakeLists.txt
+@@ -328,5 +328,15 @@
+ #find our headers
+ file(GLOB_RECURSE HEADERS ${clucene-shared_SOURCE_DIR}/*.h)
++
++#install all clucene-shared headers (config, etc.)
++FOREACH (file ${HEADERS})
++  get_filename_component(apath ${file} PATH)
++  file(RELATIVE_PATH relpath ${clucene-shared_SOURCE_DIR} ${apath})
++  install(FILES ${file}
++      DESTINATION include/${relpath}
++      COMPONENT development)
++ENDFOREACH (file)
++
+ IF (BUILD_SHARED_LIBRARIES)
+   add_library(clucene-shared SHARED
+       ${clucene_shared_Files} ${HEADERS}

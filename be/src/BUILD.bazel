@@ -1,0 +1,284 @@
+# Apache Doris BE - Source root BUILD file
+#
+# This package defines the monolithic doris_be library target.
+# Due to extensive cross-module includes (util/ <-> common/, etc.),
+# we build all BE source as a single cc_library for the initial migration.
+# Fine-grained targets can be introduced later.
+
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//be:__subpackages__"])
+
+# Common copts for all BE source files
+DORIS_BE_COPTS = [
+    "-Ibe/src",
+    "-Wall",
+    "-Wextra",
+    "-Wno-unused-parameter",
+    "-Wno-sign-compare",
+    "-Wno-missing-field-initializers",
+    "-pthread",
+    "-fstrict-aliasing",
+] + select({
+    "@platforms//os:macos": ["-mmacosx-version-min=13.3", "-D_DARWIN_C_SOURCE"],
+    "//conditions:default": [],
+})
+
+# Common defines for all BE source files
+DORIS_BE_DEFINES = select({
+    "@platforms//os:linux": [
+        "OS_LINUX",
+        "_GNU_SOURCE",
+    ],
+    "@platforms//os:macos": [
+        "OS_MACOSX",
+        "BOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED",
+        "USE_LIBCPP",
+        "_DARWIN_C_SOURCE",
+    ],
+    "//conditions:default": [],
+}) + select({
+    "@platforms//cpu:x86_64": ["ARCH_AMD64"],
+    "@platforms//cpu:aarch64": ["ARCH_AARCH64"],
+    "//conditions:default": [],
+}) + [
+    "USE_LIBHDFS3",
+    "DORIS_BAZEL_NO_AWS",
+    "S2_USE_GLOG",
+]
+
+# =============================================================================
+# Generated source files (flex/bison)
+# =============================================================================
+
+genrule(
+    name = "wkt_lex_gen",
+    srcs = ["exprs/function/geo/wkt_lex.l"],
+    outs = [
+        "geo/wkt_lex.l.cpp",
+        "geo/wkt_lex.l.h",
+    ],
+    cmd = "flex --header-file=$(location geo/wkt_lex.l.h) --outfile=$(location geo/wkt_lex.l.cpp) $(location exprs/function/geo/wkt_lex.l)",
+)
+
+genrule(
+    name = "wkt_yacc_gen",
+    srcs = ["exprs/function/geo/wkt_yacc.y"],
+    outs = [
+        "geo/wkt_yacc.y.cpp",
+        "geo/wkt_yacc.y.hpp",
+    ],
+    cmd = "/opt/homebrew/opt/bison/bin/bison --output=$(location geo/wkt_yacc.y.cpp) --defines=$(location geo/wkt_yacc.y.hpp) $(location exprs/function/geo/wkt_yacc.y)",
+)
+
+# Monolithic BE library - all source files compiled together
+cc_library(
+    name = "doris_be_lib",
+    srcs = glob(
+        [
+            "**/*.cpp",
+            "**/*.cc",
+        ],
+        exclude = [
+            "**/*_test.cpp",
+            "**/*_test.cc",
+            "**/test_*.cpp",
+            "**/test_*.cc",
+            "**/*_benchmark.cpp",
+            "**/benchmark/**",
+            # Main entry point (built separately)
+            "service/doris_main.cpp",
+            # Cloud-specific files (conditional)
+            "cloud/**",
+            # AWS/Azure SDK dependent files (TODO: add aws-sdk-cpp and azure-sdk-cpp)
+            "runtime/aws_msk_iam_auth.cpp",
+            "runtime/snapshot_loader.cpp",
+            "util/s3_util.cpp",
+            "io/fs/s3_file_reader.cpp",
+            "io/fs/s3_file_system.cpp",
+            "io/fs/s3_file_writer.cpp",
+            "io/fs/s3_file_bufferpool.cpp",
+            "io/fs/s3_obj_storage_client.cpp",
+            "io/fs/azure_obj_storage_client.cpp",
+            "io/fs/err_utils.cpp",
+            "io/file_factory.cpp",
+            "agent/task_worker_pool.cpp",
+            "load/routine_load/data_consumer.cpp",
+            "load/routine_load/data_consumer_group.cpp",
+            "load/routine_load/data_consumer_pool.cpp",
+            "load/routine_load/routine_load_task_executor.cpp",
+            "exec/sink/writer/vhive_partition_writer.cpp",
+            "exec/sink/writer/vfile_result_writer.cpp",
+            # HDFS (requires libhdfs3, TODO: add libhdfs3 to Bazel build)
+            "io/fs/hdfs_file_writer.cpp",
+            "io/fs/hdfs_file_reader.cpp",
+            "io/fs/hdfs_file_system.cpp",
+            "io/fs/hdfs/**",
+            "io/fs/file_handle_cache.cpp",
+            "io/hdfs_builder.cpp",
+            "io/hdfs_util.cpp",
+            # SM3/SM4 crypto (requires OpenSSL, not available in BoringSSL)
+            "util/sm3.cpp",
+            "util/encryption_util.cpp",
+            # Kerberos (macOS deprecated krb5 API has incompatible signatures)
+            "common/kerberos/**",
+            # Linux-only perf counters (uses linux/perf_event.h, /proc/self/io)
+            "util/perf_counters.cpp",
+            # BFD parser (requires GNU binutils bfd.h, not available on macOS)
+            "util/bfd_parser.cpp",
+            # jemalloc hook (uses __attribute__((alias)) not supported on macOS)
+            "runtime/memory/jemalloc_hook.cpp",
+            # glibc-compatibility (Linux-only glibc shims, x86 intrinsics)
+            "glibc-compatibility/**",
+            # ORC transformer (depends on ORC writer APIs not yet available)
+            "format/transformer/vorc_transformer.cpp",
+            # Paimon C++ native reader/filesystem (requires paimon-cpp library, TODO)
+            "format/table/paimon_cpp_reader.cpp",
+            "format/table/paimon_doris_file_system.cpp",
+            "format/table/paimon_predicate_converter.cpp",
+            # Arrow Flight SQL (TODO: build Arrow with Flight SQL support)
+            "service/arrow_flight/**",
+            "format/table/remote_doris_reader.cpp",
+            # FAISS (Facebook AI Similarity Search, TODO: add faiss to Bazel build)
+            "exprs/function/array/function_array_distance.cpp",
+            "storage/index/ann/faiss_ann_index.cpp",
+        ],
+    ) + [
+        "geo/wkt_lex.l.cpp",
+        "geo/wkt_yacc.y.cpp",
+    ],
+    hdrs = glob([
+        "**/*.h",
+        "**/*.hpp",
+    ]) + [
+        "geo/wkt_lex.l.h",
+        "geo/wkt_yacc.y.hpp",
+    ],
+    copts = DORIS_BE_COPTS + ["-Wno-unused-function", "-Wno-register"],
+    defines = DORIS_BE_DEFINES,
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gensrc:gen_cpp",
+        # Core libraries
+        "@fmt",
+        "@glog//:glog",
+        "@gflags//:gflags",
+        "@googletest//:gtest",
+        "@protobuf_21//:protobuf",
+        "@thrift_cpp//:thrift_lib",
+        # Abseil
+        "@abseil-cpp//:abseil_includes",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/container:btree",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/container:inlined_vector",
+        "@abseil-cpp//absl/container:node_hash_map",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/hash",
+        "@abseil-cpp//absl/numeric:int128",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/types:span",
+        # Boost
+        "@boost.algorithm//:boost.algorithm",
+        "@boost.container//:boost.container",
+        "@boost.container_hash//:boost.container_hash",
+        "@boost.date_time//:boost.date_time",
+        "@boost.dynamic_bitset//:boost.dynamic_bitset",
+        "@boost.filesystem//:boost.filesystem",
+        "@boost.intrusive//:boost.intrusive",
+        "@boost.iterator//:boost.iterator",
+        "@boost.lexical_cast//:boost.lexical_cast",
+        "@boost.locale//:boost.locale",
+        "@boost.lockfree//:boost.lockfree",
+        "@boost.math//:boost.math",
+        "@boost.mpl//:boost.mpl",
+        "@boost.multiprecision//:boost.multiprecision",
+        "@boost.preprocessor//:boost.preprocessor",
+        "@boost.random//:boost.random",
+        "@boost.range//:boost.range",
+        "@boost.regex//:boost.regex",
+        "@boost.stacktrace//:boost.stacktrace",
+        "@boost.system//:boost.system",
+        "@boost.thread//:boost.thread",
+        "@boost.tokenizer//:boost.tokenizer",
+        "@boost.type_index//:boost.type_index",
+        "@boost.uuid//:boost.uuid",
+        # Header-only / lightweight libs
+        "@rapidjson//:rapidjson",
+        "@parallel_hashmap//:parallel_hashmap",
+        "@cctz//:cctz",
+        "@pdqsort//:pdqsort",
+        "@concurrentqueue//:concurrentqueue",
+        "@nlohmann_json//:json",
+        "@simdjson//:simdjson",
+        "//third_party/cpp/simdjson_compat",
+        "@xxhash//:xxhash",
+        "@fast_float//:fast_float",
+        "@cpp_timsort//:cpp_timsort",
+        "@libbase64//:libbase64",
+        "@streamvbyte//:streamvbyte",
+        "@bitshuffle//:bitshuffle",
+        "@libdivide//:libdivide",
+        # BCR deps
+        "@re2//:re2",
+        "@crc32c//:crc32c",
+        "@lz4_compat//:lz4_compat",
+        "@snappy//:snappy",
+        "@zstd//:zstd",
+        "@zlib",
+        "@brotli//:brotlidec",
+        "@brotli//:brotlienc",
+        "@boringssl//:crypto",
+        "@boringssl//:ssl",
+        "@icu//icu4c/source/common:headers",
+        "@icu//icu4c/source/common:normalizer2",
+        "@icu//icu4c/source/common:breakiterator",
+        "@icu//icu4c/source/common:uchar",
+        "@icu//icu4c/source/common:utext",
+        "@icu//icu4c/source/common:uniset",
+        "@icu//icu4c/source/common:schriter",
+        "@icu//icu4c/source/i18n:headers",
+        "@icu//icu4c/source/io:headers",
+        "@croaring//:croaring",
+        "@pugixml//:pugixml",
+        # Heavy deps (built via rules_foreign_cc cmake)
+        "@brpc//:brpc",
+        "@libevent//:libevent",
+        "@clucene//:clucene",
+        "@arrow//:arrow",
+        "@orc//:orc",
+        "@rocksdb//:rocksdb",
+    ] + select({
+        "@platforms//cpu:x86_64": ["@hyperscan//:hyperscan"],
+        "@platforms//cpu:aarch64": ["@vectorscan//:vectorscan"],
+        "//conditions:default": [],
+    }) + [
+        "@s2geometry//:s2geometry",
+        "@gperftools//:gperftools",
+        "@jemalloc//:jemalloc",
+        "@librdkafka//:librdkafka",
+        "@leveldb//:leveldb",
+        # AWS SDK stubs (minimal headers for compilation; real SDK TODO)
+        "//third_party/cpp/aws_stubs",
+        # BFD stubs (macOS doesn't have GNU binutils)
+        "//third_party/cpp/bfd_stubs",
+        # Paimon stubs (minimal headers for compilation; real paimon-cpp TODO)
+        "//third_party/cpp/paimon_stubs",
+        # Arrow Flight stubs (minimal headers; real Arrow Flight SQL TODO)
+        "//third_party/cpp/arrow_flight_stubs",
+        # HDFS stubs (libhdfs headers; real Hadoop JNI library TODO)
+        "//third_party/cpp/hdfs_stubs",
+        # FAISS stubs (minimal headers for compilation; real FAISS TODO)
+        "//third_party/cpp/faiss_stubs",
+        # JNI headers
+        "@bazel_tools//tools/jdk:jni",
+        # Common utilities (sync_point, etc.)
+        "//common:cpp_common",
+    ] + select({
+        "@platforms//cpu:aarch64": ["@sse2neon//:sse2neon"],
+        "//conditions:default": [],
+    }),
+)

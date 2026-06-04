@@ -180,8 +180,10 @@ bool init_glog(const char* basename) {
     FLAGS_logbuflevel = 0;
     // buffer log messages for at most this many seconds
     FLAGS_logbufsecs = 30;
-    // set roll num
+    // set roll num (requires Doris custom glog patch)
+#ifdef DORIS_WITH_PATCHED_GLOG
     FLAGS_log_filenum_quota = config::sys_log_roll_num;
+#endif
 
     // set log level
     std::string& loglevel = config::sys_log_level;
@@ -207,18 +209,24 @@ bool init_glog(const char* basename) {
         FLAGS_logbuflevel = 0;
     }
 
-    // set log roll mode
+    // set log roll mode (requires Doris custom glog patch)
     std::string& rollmode = config::sys_log_roll_mode;
     std::string sizeflag = "SIZE-MB-";
     bool ok = false;
     if (rollmode.compare("TIME-DAY") == 0) {
+#ifdef DORIS_WITH_PATCHED_GLOG
         FLAGS_log_split_method = "day";
+#endif
         ok = true;
     } else if (rollmode.compare("TIME-HOUR") == 0) {
+#ifdef DORIS_WITH_PATCHED_GLOG
         FLAGS_log_split_method = "hour";
+#endif
         ok = true;
     } else if (rollmode.substr(0, sizeflag.length()).compare(sizeflag) == 0) {
+#ifdef DORIS_WITH_PATCHED_GLOG
         FLAGS_log_split_method = "size";
+#endif
         std::string sizestr = rollmode.substr(sizeflag.size(), rollmode.size() - sizeflag.size());
         if (sizestr.size() != 0) {
             char* end = nullptr;

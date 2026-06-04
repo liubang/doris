@@ -1,0 +1,59 @@
+--- a/c++/include/orc/Common.hh
++++ b/c++/include/orc/Common.hh
+@@ -23,6 +23,7 @@
+ #include "orc/Type.hh"
+ #include "orc/Vector.hh"
+ 
++#include <functional>
+ #include <string>
+ 
+ namespace orc {
+@@ -223,6 +224,33 @@
+      * Get the writer timezone.
+      */
+     virtual const std::string& getWriterTimezone() const = 0;
++  };
++
++  /**
++   * StreamId identifies a specific stream within a stripe (Doris extension).
++   */
++  struct StreamId {
++    uint64_t column;
++    StreamKind kind;
++
++    StreamId() : column(0), kind(StreamKind_PRESENT) {}
++    StreamId(uint64_t _column, StreamKind _kind) : column(_column), kind(_kind) {}
++
++    bool operator==(const StreamId& other) const {
++      return column == other.column && kind == other.kind;
++    }
++
++    bool operator!=(const StreamId& other) const {
++      return !(*this == other);
++    }
++
++    bool operator<(const StreamId& other) const {
++      if (column != other.column) return column < other.column;
++      return kind < other.kind;
++    }
++
++    uint64_t getColumnId() const { return column; }
++    StreamKind getKind() const { return kind; }
+   };
+ 
+   // Return true if val1 < val2; otherwise return false
+@@ -306,4 +334,14 @@
+ 
+ }  // namespace orc
+ 
++namespace std {
++  template<>
++  struct hash<orc::StreamId> {
++    size_t operator()(const orc::StreamId& id) const {
++      return hash<uint64_t>()(id.column) ^ (hash<int>()(static_cast<int>(id.kind)) << 16);
++    }
++  };
++}  // namespace std
++
+ #endif
++

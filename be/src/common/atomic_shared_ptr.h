@@ -20,7 +20,7 @@
 #include <memory>
 
 namespace doris {
-#ifndef USE_LIBCPP
+#if !defined(_LIBCPP_VERSION) && !defined(USE_LIBCPP)
 template <typename T>
 using atomic_shared_ptr = std::atomic<std::shared_ptr<T>>;
 #else
@@ -30,9 +30,14 @@ template <typename T>
 class atomic_shared_ptr {
 public:
     atomic_shared_ptr() noexcept : _ptr(nullptr) {}
+    atomic_shared_ptr(std::nullptr_t) noexcept : _ptr(nullptr) {}
     atomic_shared_ptr(std::shared_ptr<T> desired) noexcept : _ptr(desired) {}
     atomic_shared_ptr(const atomic_shared_ptr&) = delete;
     atomic_shared_ptr& operator=(const atomic_shared_ptr&) = delete;
+
+    void operator=(std::shared_ptr<T> desired) noexcept {
+        store(std::move(desired));
+    }
 
     void store(std::shared_ptr<T> desired,
                std::memory_order order = std::memory_order_seq_cst) noexcept {

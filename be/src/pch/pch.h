@@ -310,12 +310,11 @@
 // simdjson headers
 #include <simdjson.h>
 #include <simdjson/common_defs.h>
-#include <simdjson/simdjson.h>
+#include <simdjson.h>
 
 // snappy headers
 #include <snappy.h>
-#include <snappy/snappy-sinksource.h>
-#include <snappy/snappy.h>
+#include <snappy-sinksource.h>
 
 // thrift headers
 #include <thrift/TApplicationException.h>

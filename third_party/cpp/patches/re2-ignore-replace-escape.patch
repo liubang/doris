@@ -1,0 +1,63 @@
+diff --git a/re2/re2.h b/re2/re2.h
+index 1234567..abcdefg 100644
+--- a/re2/re2.h
++++ b/re2/re2.h
+@@ -688,7 +688,8 @@
+       case_sensitive_(true),
+       perl_classes_(false),
+       word_boundary_(false),
+-      one_line_(false) {
++      one_line_(false),
++      ignore_replace_escape_(false) {
+     }
+ 
+     /*implicit*/ Options(CannedOptions);
+@@ -732,6 +733,9 @@
+     bool one_line() const { return one_line_; }
+     void set_one_line(bool b) { one_line_ = b; }
+ 
++    bool ignore_replace_escape() const { return ignore_replace_escape_; }
++    void set_ignore_replace_escape(bool b) { ignore_replace_escape_ = b; }
++
+     void Copy(const Options& src) {
+       *this = src;
+     }
+@@ -752,6 +756,7 @@
+     bool perl_classes_;
+     bool word_boundary_;
+     bool one_line_;
++    bool ignore_replace_escape_;
+   };
+ 
+   // Returns the options set in the constructor.
+diff --git a/re2/re2.cc b/re2/re2.cc
+index 1234567..abcdefg 100644
+--- a/re2/re2.cc
++++ b/re2/re2.cc
+@@ -68,7 +68,8 @@
+     case_sensitive_(true),
+     perl_classes_(false),
+     word_boundary_(false),
+-    one_line_(false) {
++    one_line_(false),
++    ignore_replace_escape_(false) {
+ }
+ 
+ // Empty objects for use as const references.
+@@ -1054,9 +1055,13 @@
+     } else if (c == '\\') {
+       out->push_back('\\');
+     } else {
+-      if (options_.log_errors())
+-        ABSL_LOG(ERROR) << "invalid rewrite pattern: " << rewrite;
+-      return false;
++      if (options_.ignore_replace_escape()) {
++        out->push_back(*s);
++      } else {
++        if (options_.log_errors())
++          ABSL_LOG(ERROR) << "invalid rewrite pattern: " << rewrite;
++        return false;
++      }
+     }
+   }
+   return true;

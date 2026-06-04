@@ -1,0 +1,6 @@
+cc_library(
+    name = "bfd_stubs",
+    hdrs = ["bfd.h"],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)

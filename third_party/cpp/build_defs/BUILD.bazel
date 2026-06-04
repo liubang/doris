@@ -1,0 +1,2 @@
+# Marker file for build_defs package
+exports_files(glob(["*.BUILD"]))

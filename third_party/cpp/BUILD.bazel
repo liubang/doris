@@ -1,0 +1,7 @@
+# This package provides build targets for C++ third-party dependencies
+# that are not available in the Bazel Central Registry (BCR).
+#
+# Dependencies are fetched via http_archive in extensions.bzl and built
+# using either rules_foreign_cc (cmake/configure_make) or native cc_library rules.
+
+package(default_visibility = ["//visibility:public"])

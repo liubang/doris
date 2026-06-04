@@ -1,0 +1,19 @@
+--- a/cpp/cmake_modules/ThirdpartyToolchain.cmake	2026-06-02 18:45:03
++++ b/cpp/cmake_modules/ThirdpartyToolchain.cmake	2026-06-02 18:45:34
+@@ -945,9 +945,13 @@
+ # RANLIB isn't used for MSVC
+ if(NOT MSVC)
+   if(CMAKE_RANLIB)
+-    # Ensure using absolute path.
+-    find_program(EP_CMAKE_RANLIB ${CMAKE_RANLIB} REQUIRED)
+-    list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_RANLIB=${EP_CMAKE_RANLIB})
++    # Ensure using absolute path, but skip if CMAKE_RANLIB is ":" (no-op,
++    # set by CMake when using libtool as archiver) or empty.
++    string(STRIP "${CMAKE_RANLIB}" _stripped_ranlib)
++    if(_stripped_ranlib AND NOT _stripped_ranlib STREQUAL ":")
++      find_program(EP_CMAKE_RANLIB ${_stripped_ranlib} REQUIRED)
++      list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_RANLIB=${EP_CMAKE_RANLIB})
++    endif()
+   endif()
+ endif()
+ 

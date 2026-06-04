@@ -1,4 +1,4 @@
-"""Apache Doris FE - Bazel Build System (Bzlmod)"""
+"""Apache Doris - Bazel Build System (Bzlmod)"""
 
 module(
     name = "doris",
@@ -14,7 +14,89 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_java", version = "9.6.1")
 bazel_dep(name = "rules_jvm_external", version = "7.0")
 bazel_dep(name = "rules_proto", version = "7.1.0")
-bazel_dep(name = "protobuf", version = "29.3")  # resolved to 33.4 via MVS
+bazel_dep(name = "protobuf", version = "29.3")  # resolved to 33.4 via MVS (FE proto codegen)
+
+# =============================================================================
+# C++ Build Rules
+# =============================================================================
+
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
+
+# --- C++ Dependencies from BCR ---
+bazel_dep(name = "abseil-cpp", version = "20240722.0")
+single_version_override(
+    module_name = "abseil-cpp",
+    patches = ["//third_party/cpp/patches:abseil-cpp-includes.patch"],
+    patch_strip = 1,
+)
+bazel_dep(name = "glog", version = "0.7.1")
+bazel_dep(name = "gflags", version = "2.2.2")
+bazel_dep(name = "googletest", version = "1.15.2")
+bazel_dep(name = "re2", version = "2024-07-02")
+single_version_override(
+    module_name = "re2",
+    patches = [
+        "//third_party/cpp/patches:re2-includes.patch",
+        "//third_party/cpp/patches:re2-ignore-replace-escape.patch",
+    ],
+    patch_strip = 1,
+)
+bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
+bazel_dep(name = "zstd", version = "1.5.6")
+bazel_dep(name = "lz4", version = "1.9.4")
+bazel_dep(name = "snappy", version = "1.2.1")
+single_version_override(
+    module_name = "snappy",
+    patches = ["//third_party/cpp/patches:snappy-includes.patch"],
+    patch_strip = 1,
+)
+bazel_dep(name = "brotli", version = "1.1.0")
+bazel_dep(name = "curl", version = "8.8.0.bcr.1")
+bazel_dep(name = "boringssl", version = "0.20240913.0")
+bazel_dep(name = "flatbuffers", version = "24.3.25")
+bazel_dep(name = "nlohmann_json", version = "3.11.3.bcr.1")
+bazel_dep(name = "simdjson", version = "4.2.2")
+bazel_dep(name = "c-ares", version = "1.34.5")
+bazel_dep(name = "crc32c", version = "1.1.0")
+bazel_dep(name = "icu", version = "76.1")
+single_version_override(
+    module_name = "icu",
+    patches = ["//third_party/cpp/patches:icu-io-build.patch"],
+    patch_strip = 1,
+)
+# fmt is provided via cpp_deps extension (7.1.3) - BCR version (11.x) has breaking changes
+# bazel_dep(name = "fmt", version = "11.1.4")
+
+# --- Boost (modular, BCR) ---
+bazel_dep(name = "boost.algorithm", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.container", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.container_hash", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.date_time", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.dynamic_bitset", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.graph", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.icl", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.multi_array", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.filesystem", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.intrusive", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.iterator", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.lexical_cast", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.locale", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.lockfree", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.math", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.mpl", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.multiprecision", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.numeric_conversion", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.preprocessor", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.random", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.range", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.regex", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.stacktrace", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.system", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.thread", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.tokenizer", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.type_index", version = "1.88.0.bcr.3")
+bazel_dep(name = "boost.uuid", version = "1.88.0.bcr.3")
 
 # =============================================================================
 # Java Toolchain (use remote JDK 17 via .bazelrc)
@@ -385,3 +467,67 @@ use_repo(maven, "maven")
 
 doris_tools = use_extension("//tools/bazel:extensions.bzl", "doris_tools")
 use_repo(doris_tools, "thrift_compiler", "grpc_java_plugin")
+
+# =============================================================================
+# C++ Non-BCR Dependencies (via http_archive in extension)
+# =============================================================================
+# The following C++ dependencies are NOT available in BCR and are managed
+# through a custom module extension in //third_party/cpp:extensions.bzl:
+#   - protobuf 21.11 (C++ runtime for BE, pinned for brpc compatibility)
+#   - brpc 1.4.0 (RPC framework)
+#   - Apache Thrift 0.16.0 (C++ library)
+#   - Apache Arrow 17.0.0 (columnar format)
+#   - Apache ORC 1.9.0 (columnar storage)
+#   - RocksDB 5.14.2 (embedded KV store)
+#   - jemalloc 5.3.0 (memory allocator)
+#   - libunwind 1.6.2 (stack unwinding)
+#   - gperftools 2.10 (tcmalloc)
+#   - libevent 2.1.12 (event notification)
+#   - librdkafka 2.11.0 (Kafka client)
+#   - Hyperscan/Vectorscan 5.4.x (regex engine)
+#   - CRoaring 2.1.2 (bitmap)
+#   - S2 Geometry 0.10.0
+#   - CLucene (full-text search)
+#   - OpenSSL 1.1.1s (BE uses OpenSSL, not BoringSSL for runtime)
+#   - leveldb (embedded KV)
+#   - rapidjson (JSON parser)
+
+cpp_deps = use_extension("//third_party/cpp:extensions.bzl", "cpp_deps")
+use_repo(
+    cpp_deps,
+    "fmt",
+    "protobuf_21",
+    "brpc",
+    "thrift_cpp",
+    "arrow",
+    "orc",
+    "rocksdb",
+    "jemalloc",
+    "libunwind",
+    "gperftools",
+    "libevent",
+    "librdkafka",
+    "hyperscan",
+    "vectorscan",
+    "croaring",
+    "s2geometry",
+    "clucene",
+    "openssl",
+    "leveldb",
+    "rapidjson",
+    "parallel_hashmap",
+    "cctz",
+    "pdqsort",
+    "concurrentqueue",
+    "xxhash",
+    "sse2neon",
+    "fast_float",
+    "cpp_timsort",
+    "aws_sdk",
+    "libbase64",
+    "streamvbyte",
+    "lz4_compat",
+    "bitshuffle",
+    "libdivide",
+    "pugixml",
+)

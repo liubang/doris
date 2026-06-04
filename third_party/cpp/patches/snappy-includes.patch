@@ -1,0 +1,10 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -61,6 +61,7 @@
+ cc_library(
+     name = "snappy",
++    includes = ["."],
+     srcs = [
+         "snappy.cc",
+         "snappy-internal.h",
+         "snappy-sinksource.cc",

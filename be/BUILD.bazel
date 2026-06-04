@@ -1,0 +1,12 @@
+# Apache Doris Backend (BE) - Top-level BUILD file
+#
+# The BE is a C++20 application that implements the storage engine,
+# query execution engine, and RPC services.
+
+package(default_visibility = ["//be:__subpackages__"])
+
+# Package group for BE internal visibility
+package_group(
+    name = "be_internal",
+    packages = ["//be/..."],
+)

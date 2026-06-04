@@ -1,0 +1,56 @@
+diff --git a/icu4c/source/io/BUILD.bazel b/icu4c/source/io/BUILD.bazel
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/icu4c/source/io/BUILD.bazel
+@@ -0,0 +1,50 @@
++# BUILD.bazel for ICU4C "io" library (ustdio, ustream)
++
++load("@rules_cc//cc:defs.bzl", "cc_library")
++
++package(
++    default_visibility = ["//visibility:public"],
++)
++
++cc_library(
++    name = "headers",
++    hdrs = glob([
++        "unicode/*.h",
++        "*.h",
++    ]),
++    includes = ["."],
++    local_defines = [
++        "U_IO_IMPLEMENTATION",
++    ],
++    deps = [
++        "//icu4c/source/common:headers",
++        "//icu4c/source/i18n:headers",
++    ],
++)
++
++cc_library(
++    name = "ustream",
++    srcs = [
++        "locbund.cpp",
++        "sprintf.cpp",
++        "sscanf.cpp",
++        "ucln_io.cpp",
++        "ufile.cpp",
++        "ufmt_cmn.cpp",
++        "uprintf.cpp",
++        "uprntf_p.cpp",
++        "uscanf.cpp",
++        "uscanf_p.cpp",
++        "ustdio.cpp",
++        "ustream.cpp",
++    ],
++    includes = ["."],
++    deps = [
++        ":headers",
++        "//icu4c/source/common:platform",
++        "//icu4c/source/i18n:headers",
++    ],
++    local_defines = [
++        "U_IO_IMPLEMENTATION",
++    ],
++)

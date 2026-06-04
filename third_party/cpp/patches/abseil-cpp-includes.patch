@@ -1,0 +1,17 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -14,6 +14,14 @@
+ 
+ package(default_visibility = ["//visibility:public"])
+ 
++# Provides -isystem include path so that #include <absl/...> works
++# with angle brackets (system include style).
++cc_library(
++    name = "abseil_includes",
++    includes = ["."],
++    visibility = ["//visibility:public"],
++)
++
+ licenses(["notice"])  # Apache 2.0
+ 
+ # Expose license for external usage through bazel.

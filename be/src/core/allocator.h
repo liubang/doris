@@ -63,7 +63,11 @@
 
 /// Required for older Darwin builds, that lack definition of MAP_ANONYMOUS
 #ifndef MAP_ANONYMOUS
+#ifdef MAP_ANON
 #define MAP_ANONYMOUS MAP_ANON
+#else
+#define MAP_ANONYMOUS 0x1000
+#endif
 #endif
 
 #ifndef __THROW

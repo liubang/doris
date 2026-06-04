@@ -1,0 +1,116 @@
+--- a/c++/include/orc/Reader.hh	2026-06-03 14:11:50
++++ b/c++/include/orc/Reader.hh	2026-06-03 14:14:10
+@@ -29,7 +29,9 @@
+ 
+ #include <atomic>
+ #include <map>
++#include <list>
+ #include <memory>
++#include <unordered_map>
+ #include <set>
+ #include <string>
+ #include <vector>
+@@ -39,6 +41,11 @@
+   // classes that hold data members so we can maintain binary compatibility
+   struct ReaderOptionsPrivate;
+   struct RowReaderOptionsPrivate;
++
++  // Forward declarations for Doris extensions
++  class InputStream;
++  class ORCFilter;
++  class StringDictFilter;
+ 
+   /**
+    * Expose the reader metrics including the latency and
+@@ -59,6 +66,7 @@
+     std::atomic<uint64_t> IOBlockingLatencyUs{0};
+     std::atomic<uint64_t> SelectedRowGroupCount{0};
+     std::atomic<uint64_t> EvaluatedRowGroupCount{0};
++    std::atomic<uint64_t> ReadRowCount{0};
+   };
+   ReaderMetrics* getDefaultReaderMetrics();
+ 
+@@ -356,6 +364,14 @@
+      * Whether reader throws or returns null when value overflows for schema evolution.
+      */
+     bool getThrowOnSchemaEvolutionOverflow() const;
++
++    /**
++     * Set filter columns for lazy read (Doris extension).
++     * @param columns the list of column names to filter on
++     * @return this
++     */
++    RowReaderOptions& filter(const std::list<std::string>& columns);
++    const std::list<std::string>& getFilterColumns() const;
+   };
+ 
+   class RowReader;
+@@ -553,6 +569,23 @@
+     virtual std::unique_ptr<RowReader> createRowReader(const RowReaderOptions& options) const = 0;
+ 
+     /**
++     * Create a RowReader with filter and dict filter support (Doris extension).
++     */
++    virtual std::unique_ptr<RowReader> createRowReader(
++        const RowReaderOptions& options, ORCFilter* filter,
++        StringDictFilter* dictFilter) const { return createRowReader(options); }
++
++    /**
++     * Get which stripes need to be read (Doris extension).
++     */
++    virtual std::vector<bool> getNeedReadStripes(const RowReaderOptions& options) const { return {}; }
++
++    /**
++     * Get the underlying input stream (Doris extension).
++     */
++    virtual InputStream* getStream() const { return nullptr; }
++
++    /**
+      * Get the name of the input stream.
+      */
+     virtual const std::string& getStreamName() const = 0;
+@@ -657,7 +690,44 @@
+      * @param rowNumber the next row the reader should return
+      */
+     virtual void seekToRow(uint64_t rowNumber) = 0;
++
++    /**
++     * Get the total number of rows (Doris extension).
++     */
++    virtual uint64_t getNumberOfRows() const { return 0; }
++
++    /**
++     * Read next batch with block parameter (Doris extension).
++     */
++    virtual uint64_t nextBatch(ColumnVectorBatch& data, void* block) {
++      return next(data) ? data.numElements : 0;
++    }
+   };
++
++  /**
++   * ORCFilter: callback for row-level filtering (Doris extension).
++   */
++  class ORCFilter {
++   public:
++    virtual ~ORCFilter() = default;
++    virtual void filter(ColumnVectorBatch& data, uint16_t* sel,
++                        uint16_t size, void* arg) const = 0;
++  };
++
++  /**
++   * StringDictFilter: callback for dictionary filtering (Doris extension).
++   */
++  class StringDictFilter {
++   public:
++    virtual ~StringDictFilter() = default;
++    virtual void fillDictFilterColumnNames(
++        std::unique_ptr<StripeInformation> current_strip_information,
++        std::list<std::string>& column_names) const = 0;
++    virtual void onStringDictsLoaded(
++        std::unordered_map<std::string, StringDictionary*>& column_name_to_dict_map,
++        bool* is_stripe_filtered) const = 0;
++  };
++
+ }  // namespace orc
+ 
+ #endif

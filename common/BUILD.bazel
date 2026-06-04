@@ -1,0 +1,28 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "cpp_common",
+    srcs = glob(
+        ["cpp/*.cpp"],
+        exclude = [
+            # These files depend on the real AWS SDK (not stubs)
+            "cpp/custom_aws_credentials_provider_chain.cpp",
+            "cpp/obj_retry_strategy.cpp",
+        ],
+    ),
+    hdrs = glob(["cpp/*.h", "cpp/*.hpp"]),
+    # Include path: "common/" so that #include <cpp/sync_point.h> works
+    includes = ["."],
+    copts = select({
+        "@platforms//os:macos": ["-mmacosx-version-min=11.0"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//gensrc:gen_cpp",
+        "@brpc//:brpc",
+        "@glog//:glog",
+        "//third_party/cpp/aws_stubs",
+    ],
+)

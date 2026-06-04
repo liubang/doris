@@ -1,0 +1,7 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "hdfs_stubs",
+    hdrs = glob(["hdfs/**/*.h"]),
+    includes = ["."],
+)

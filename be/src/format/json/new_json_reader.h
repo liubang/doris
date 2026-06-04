@@ -22,7 +22,7 @@
 #include <rapidjson/encodings.h>
 #include <rapidjson/rapidjson.h>
 #include <simdjson/common_defs.h>
-#include <simdjson/simdjson.h> // IWYU pragma: keep
+#include <simdjson.h> // IWYU pragma: keep
 
 #include <memory>
 #include <string>

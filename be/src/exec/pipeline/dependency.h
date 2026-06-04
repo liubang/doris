@@ -24,7 +24,6 @@
 
 #include <concurrentqueue.h>
 #include <gen_cpp/internal_service.pb.h>
-#include <sqltypes.h>
 
 #include <atomic>
 #include <functional>

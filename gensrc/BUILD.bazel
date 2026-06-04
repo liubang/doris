@@ -1,7 +1,10 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_java//java:defs.bzl", "java_library")
 load("//tools/bazel:thrift.bzl", "thrift_java_library")
+load("//tools/bazel:thrift_cpp.bzl", "thrift_cpp_library")
+load("//tools/bazel:proto_cpp.bzl", "doris_cc_proto_library")
 
-package(default_visibility = ["//fe:__subpackages__"])
+package(default_visibility = ["//visibility:public"])
 
 # =============================================================================
 # Version.java Code Generation
@@ -117,5 +120,177 @@ java_library(
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:javax_annotation_javax_annotation_api",
+    ],
+)
+
+# =============================================================================
+# C++ Protobuf Code Generation (for BE)
+# =============================================================================
+
+doris_cc_proto_library(
+    name = "doris_proto_cpp",
+    srcs = glob(["proto/*.proto"]),
+    proto_path = "gensrc/proto",
+)
+
+# =============================================================================
+# C++ Thrift Code Generation (for BE)
+# =============================================================================
+
+thrift_cpp_library(
+    name = "doris_thrift_cpp",
+    srcs = glob(["thrift/*.thrift"]),
+    thrift_path = "gensrc/thrift",
+)
+
+# =============================================================================
+# C++ Version Header Generation (for BE)
+# =============================================================================
+
+genrule(
+    name = "version_h_gen",
+    outs = ["gen_cpp/version.h"],
+    cmd = """
+        REVISION=$$(git -C $$(dirname $(location //:MODULE.bazel)) log -1 --pretty=format:"%H" 2>/dev/null || echo "Unknown")
+        SHORT_REV=$$(git -C $$(dirname $(location //:MODULE.bazel)) log -1 --pretty=format:"%h" 2>/dev/null || echo "Unknown")
+        BUILD_TIME=$$(date +"%a, %d %b %Y %H:%M:%S %Z")
+        HOSTNAME=$$(hostname)
+        cat > $@ << HEOF
+#ifndef DORIS_GEN_CPP_VERSION_H
+#define DORIS_GEN_CPP_VERSION_H
+
+namespace doris {
+
+#define DORIS_BUILD_VERSION_PREFIX      "doris";
+#define DORIS_BUILD_VERSION_MAJOR       4;
+#define DORIS_BUILD_VERSION_MINOR       1;
+#define DORIS_BUILD_VERSION_PATCH       1;
+#define DORIS_BUILD_VERSION_HOTFIX      0;
+#define DORIS_BUILD_VERSION_RC_VERSION  "";
+
+#define DORIS_BUILD_VERSION             "doris-4.1.1"
+#define DORIS_BUILD_HASH                "git://$${HOSTNAME}@$${REVISION}"
+#define DORIS_BUILD_SHORT_HASH          "$${SHORT_REV}"
+#define DORIS_BUILD_TIME                "$${BUILD_TIME}"
+#define DORIS_BUILD_INFO                "$${HOSTNAME}"
+#define DORIS_FEATURE_LIST              ""
+
+} // namespace doris
+
+#endif
+HEOF
+    """,
+    srcs = ["//:MODULE.bazel"],
+)
+
+genrule(
+    name = "cloud_version_h_gen",
+    outs = ["gen_cpp/cloud_version.h"],
+    cmd = """
+        REVISION=$$(git -C $$(dirname $(location //:MODULE.bazel)) log -1 --pretty=format:"%H" 2>/dev/null || echo "Unknown")
+        SHORT_REV=$$(git -C $$(dirname $(location //:MODULE.bazel)) log -1 --pretty=format:"%h" 2>/dev/null || echo "Unknown")
+        BUILD_TIME=$$(date +"%a, %d %b %Y %H:%M:%S %Z")
+        HOSTNAME=$$(hostname)
+        cat > $@ << HEOF
+#ifndef DORIS_GEN_CPP_CLOUD_VERSION_H
+#define DORIS_GEN_CPP_CLOUD_VERSION_H
+
+namespace doris::cloud {
+
+#define DORIS_CLOUD_BUILD_VERSION_PREFIX      "doris";
+#define DORIS_CLOUD_BUILD_VERSION_MAJOR       4;
+#define DORIS_CLOUD_BUILD_VERSION_MINOR       1;
+#define DORIS_CLOUD_BUILD_VERSION_PATCH       1;
+#define DORIS_CLOUD_BUILD_VERSION_HOTFIX      0;
+#define DORIS_CLOUD_BUILD_VERSION_RC_VERSION  "";
+
+#define DORIS_CLOUD_BUILD_VERSION             "doris-4.1.1"
+#define DORIS_CLOUD_BUILD_HASH                "git://$${HOSTNAME}@$${REVISION}"
+#define DORIS_CLOUD_BUILD_SHORT_HASH          "$${SHORT_REV}"
+#define DORIS_CLOUD_BUILD_TIME                "$${BUILD_TIME}"
+#define DORIS_CLOUD_BUILD_INFO                "$${HOSTNAME}"
+
+} // namespace doris::cloud
+
+#endif
+HEOF
+    """,
+    srcs = ["//:MODULE.bazel"],
+)
+
+# =============================================================================
+# Version headers as a cc_library (for BE)
+# The genrule outputs go to gen_cpp/ subdir, and we expose them via CcInfo
+# so that #include <gen_cpp/version.h> works.
+# =============================================================================
+
+cc_library(
+    name = "doris_version_cpp",
+    hdrs = [
+        "gen_cpp/version.h",
+        "gen_cpp/cloud_version.h",
+    ],
+    includes = ["."],
+)
+
+# =============================================================================
+# env_config.h Generation (for BE)
+# Generated from be/src/common/env_config.h.in via CMake configure_file
+# =============================================================================
+
+genrule(
+    name = "env_config_h_gen",
+    outs = ["gen_cpp/common/env_config.h"],
+    cmd = select({
+        "@platforms//os:linux": """
+            cat > $@ << 'EOF'
+#pragma once
+
+namespace doris {
+
+#define HAVE_SCHED_GETCPU 1
+
+}
+EOF
+        """,
+        "//conditions:default": """
+            cat > $@ << 'EOF'
+#pragma once
+
+namespace doris {
+
+/* #undef HAVE_SCHED_GETCPU */
+
+}
+EOF
+        """,
+    }),
+)
+
+cc_library(
+    name = "doris_env_config",
+    hdrs = ["gen_cpp/common/env_config.h"],
+    includes = ["gen_cpp"],
+)
+
+# =============================================================================
+# Unified gen_cpp C++ library for BE
+# Compiles all generated proto/thrift .cc files and provides headers.
+# BE targets should depend on this single target.
+# =============================================================================
+
+cc_library(
+    name = "gen_cpp",
+    srcs = [
+        ":doris_proto_cpp",
+        ":doris_thrift_cpp",
+    ],
+    deps = [
+        ":doris_proto_cpp",
+        ":doris_thrift_cpp",
+        ":doris_version_cpp",
+        ":doris_env_config",
+        "@protobuf_21//:protobuf",
+        "@thrift_cpp//:thrift_lib",
     ],
 )

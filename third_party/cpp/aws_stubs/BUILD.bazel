@@ -1,0 +1,13 @@
+# AWS SDK C++ stub headers for Bazel build
+# These provide minimal type definitions to satisfy the compiler
+# when the real AWS SDK is not available.
+
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "aws_stubs",
+    hdrs = glob(["aws/**/*.h"]),
+    includes = ["."],
+)

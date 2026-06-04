@@ -462,7 +462,9 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
     init_simdjson_parser();
 
     // Make aws-sdk-cpp InitAPI and ShutdownAPI called in the same thread
+#ifndef DORIS_BAZEL_NO_AWS
     S3ClientFactory::instance();
+#endif
     return Status::OK();
 }
 

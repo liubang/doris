@@ -1,0 +1,11 @@
+--- a/CMakeLists.txt	2026-06-02 19:22:19
++++ b/CMakeLists.txt	2026-06-02 19:22:19
+@@ -1196,7 +1196,7 @@
+ add_subdirectory(util)
+ add_subdirectory(unit)
+ 
+-if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
++if (FALSE AND EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
+     add_subdirectory(tools)
+ endif()
+ if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)

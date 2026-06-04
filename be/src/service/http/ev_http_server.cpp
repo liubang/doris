@@ -33,7 +33,9 @@
 
 #include <algorithm>
 #include <memory>
+#include <mutex>
 #include <sstream>
+#include <unordered_map>
 
 #include "common/logging.h"
 #include "service/backend_options.h"
@@ -49,36 +51,69 @@ struct evhttp;
 
 namespace doris {
 
-static void on_chunked(struct evhttp_request* ev_req, void* param) {
-    HttpRequest* request = (HttpRequest*)ev_req->on_free_cb_arg;
-    request->handler()->on_chunk_data(request);
+// Compatibility layer for standard libevent (without Doris custom extensions).
+// We use a global map to associate evhttp_request* with HttpRequest* since
+// standard libevent doesn't have on_free_cb_arg field in evhttp_request.
+static std::mutex s_req_map_mutex;
+static std::unordered_map<struct evhttp_request*, HttpRequest*> s_req_map;
+
+static void req_map_set(struct evhttp_request* ev_req, HttpRequest* request) {
+    std::lock_guard<std::mutex> lock(s_req_map_mutex);
+    s_req_map[ev_req] = request;
 }
 
-static void on_free(struct evhttp_request* ev_req, void* arg) {
-    HttpRequest* request = (HttpRequest*)arg;
-    delete request;
+static HttpRequest* req_map_get(struct evhttp_request* ev_req) {
+    std::lock_guard<std::mutex> lock(s_req_map_mutex);
+    auto it = s_req_map.find(ev_req);
+    if (it != s_req_map.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+static HttpRequest* req_map_remove(struct evhttp_request* ev_req) {
+    std::lock_guard<std::mutex> lock(s_req_map_mutex);
+    auto it = s_req_map.find(ev_req);
+    if (it != s_req_map.end()) {
+        HttpRequest* req = it->second;
+        s_req_map.erase(it);
+        return req;
+    }
+    return nullptr;
+}
+
+static void on_chunked(struct evhttp_request* ev_req, void* param) {
+    HttpRequest* request = req_map_get(ev_req);
+    if (request) {
+        request->handler()->on_chunk_data(request);
+    }
 }
 
 static void on_request(struct evhttp_request* ev_req, void* arg) {
-    auto request = (HttpRequest*)ev_req->on_free_cb_arg;
+    auto request = req_map_get(ev_req);
     if (request == nullptr) {
-        // In this case, request's on_header return -1
-        return;
+        // No request in map means on_header hasn't been called yet.
+        // In standard libevent without newreqcb, we call on_header from gencb.
+        EvHttpServer* server = (EvHttpServer*)arg;
+        int header_result = server->on_header(ev_req);
+        if (header_result < 0) {
+            return;
+        }
+        request = req_map_get(ev_req);
+        if (request == nullptr) {
+            return;
+        }
     }
     request->handler()->handle(request);
 }
 
-static int on_header(struct evhttp_request* ev_req, void* param) {
-    EvHttpServer* server = (EvHttpServer*)ev_req->on_complete_cb_arg;
-    return server->on_header(ev_req);
-}
-
-// param is pointer of EvHttpServer
-static int on_connection(struct evhttp_request* req, void* param) {
-    evhttp_request_set_header_cb(req, on_header);
-    // only used on_complete_cb's argument
-    evhttp_request_set_on_complete_cb(req, nullptr, param);
-    return 0;
+// on_complete callback used as a substitute for on_free_cb:
+// cleans up the HttpRequest when the request completes.
+static void on_complete_free(struct evhttp_request* ev_req, void* arg) {
+    HttpRequest* request = req_map_remove(ev_req);
+    if (request) {
+        delete request;
+    }
 }
 
 EvHttpServer::EvHttpServer(int port, int num_workers)
@@ -133,7 +168,8 @@ void EvHttpServer::start() {
             auto res = evhttp_accept_socket(http.get(), _server_fd);
             CHECK(res >= 0) << "evhttp accept socket failed, res=" << res;
 
-            evhttp_set_newreqcb(http.get(), on_connection, this);
+            // Note: standard libevent doesn't have evhttp_set_newreqcb.
+            // Header callback setup is handled in on_header_wrapper via gencb.
             evhttp_set_gencb(http.get(), on_request, this);
 
             event_base_dispatch(base.get());
@@ -265,7 +301,11 @@ int EvHttpServer::on_header(struct evhttp_request* ev_req) {
         evhttp_request_set_chunked_cb(ev_req, on_chunked);
     }
 
-    evhttp_request_set_on_free_cb(ev_req, on_free, request.release());
+    // Store the HttpRequest in our global map and use on_complete callback
+    // as a substitute for the custom on_free_cb (not in standard libevent).
+    HttpRequest* raw_request = request.release();
+    req_map_set(ev_req, raw_request);
+    evhttp_request_set_on_complete_cb(ev_req, on_complete_free, nullptr);
     return 0;
 }
 

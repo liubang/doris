@@ -25,7 +25,7 @@
 #include <rapidjson/writer.h>
 #include <re2/re2.h>
 #include <simdjson/error.h>
-#include <simdjson/simdjson.h> // IWYU pragma: keep
+#include <simdjson.h> // IWYU pragma: keep
 #include <stdlib.h>
 
 #include <boost/iterator/iterator_facade.hpp>

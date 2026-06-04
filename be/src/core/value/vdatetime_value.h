@@ -230,6 +230,8 @@ struct DateV2ValueType {
     uint32_t month_ : 4;
     uint32_t year_ : 23;
 
+    constexpr DateV2ValueType() = default;
+
     /// The library restructuring (splitting Vec into Core, Exprs, Format, Storage) changed the   order of static variable initialization. Here's the dependency chain:
     /// TimestampTzValue::FIRST_DAY (timestamptz_value.cpp:24-25) — non-inline, dynamic initialization — depends on:
     /// DateV2Value<DateTimeV2ValueType>::FIRST_DAY (vdatetime_value.h:1489) — inline, also dynamic initialization because the constructors were NOT constexpr
@@ -257,6 +259,8 @@ struct DateTimeV2ValueType {
     uint64_t day_ : 5;
     uint64_t month_ : 4;
     uint64_t year_ : 18;
+
+    constexpr DateTimeV2ValueType() = default;
 
     constexpr DateTimeV2ValueType(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
                                   uint8_t minute, uint8_t second, uint32_t microsecond)
@@ -840,8 +844,6 @@ public:
     template <typename U>
         requires std::is_integral_v<U>
     DateV2Value(U other) = delete;
-
-    DateV2Value(DateV2Value<T>& other) = default;
 
     DateV2Value(const DateV2Value<T>& other) = default;
 

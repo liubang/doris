@@ -165,8 +165,8 @@ bool TimezoneUtils::parse_tz_offset_string(const std::string& timezone, cctz::ti
         bool positive = value[0] != '-';
 
         //Regular expression guarantees hour and minute must be int
-        int hour = std::stoi(value.substr(1, 2).as_string());
-        int minute = std::stoi(value.substr(4, 2).as_string());
+        int hour = std::stoi(std::string(value.substr(1, 2)));
+        int minute = std::stoi(std::string(value.substr(4, 2)));
 
         // timezone offsets around the world extended from -12:00 to +14:00
         if (!positive && hour > 12) {

@@ -20,11 +20,14 @@
 // IWYU pragma: no_include <bthread/errno.h>
 #include <absl/strings/str_split.h>
 #include <errno.h> // IWYU pragma: keep
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/sysmacros.h>
+#endif
 #include <sys/types.h>
 
 #include <algorithm>

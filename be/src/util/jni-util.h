@@ -23,7 +23,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <cstring>
 #include <string>
+#include <type_traits>
 
 #include "common/status.h"
 #include "jni_md.h"
@@ -367,7 +369,8 @@ public:
         requires std::disjunction_v<std::is_same<T, jboolean>, std::is_same<T, jbyte>,
                                     std::is_same<T, jchar>, std::is_same<T, jshort>,
                                     std::is_same<T, jint>, std::is_same<T, jlong>,
-                                    std::is_same<T, jfloat>, std::is_same<T, jdouble>>
+                                    std::is_same<T, jfloat>, std::is_same<T, jdouble>,
+                                    std::bool_constant<std::is_same_v<T, int64_t> && !std::is_same_v<int64_t, jlong>>>
     FunctionCall& with_arg(T arg) {
         jvalue v;
         std::memset(&v, 0, sizeof(v));
@@ -383,6 +386,8 @@ public:
             v.i = arg;
         } else if constexpr (std::is_same_v<T, jlong>) {
             v.j = arg;
+        } else if constexpr (std::is_same_v<T, int64_t>) {
+            v.j = static_cast<jlong>(arg);
         } else if constexpr (std::is_same_v<T, jfloat>) {
             v.f = arg;
         } else if constexpr (std::is_same_v<T, jdouble>) {
@@ -457,7 +462,8 @@ public:
         requires std::disjunction_v<std::is_same<T, jboolean>, std::is_same<T, jbyte>,
                                     std::is_same<T, jchar>, std::is_same<T, jshort>,
                                     std::is_same<T, jint>, std::is_same<T, jlong>,
-                                    std::is_same<T, jfloat>, std::is_same<T, jdouble>>
+                                    std::is_same<T, jfloat>, std::is_same<T, jdouble>,
+                                    std::bool_constant<std::is_same_v<T, int64_t> && !std::is_same_v<int64_t, jlong>>>
     NonvirtualFunctionCall& with_arg(T arg) {
         jvalue v;
         std::memset(&v, 0, sizeof(v));
@@ -473,6 +479,8 @@ public:
             v.i = arg;
         } else if constexpr (std::is_same_v<T, jlong>) {
             v.j = arg;
+        } else if constexpr (std::is_same_v<T, int64_t>) {
+            v.j = static_cast<jlong>(arg);
         } else if constexpr (std::is_same_v<T, jfloat>) {
             v.f = arg;
         } else if constexpr (std::is_same_v<T, jdouble>) {

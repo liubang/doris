@@ -1,0 +1,28 @@
+--- a/c++/include/orc/OrcFile.hh
++++ b/c++/include/orc/OrcFile.hh
+@@ -20,6 +20,9 @@
+ #define ORC_FILE_HH
+ 
+ #include <string>
++#include <memory>
++#include <vector>
++#include <unordered_map>
+ 
+ #include "orc/Reader.hh"
+ #include "orc/Writer.hh"
+@@ -62,6 +65,15 @@
+      * Get the name of the stream for error messages.
+      */
+     virtual const std::string& getName() const = 0;
++
++    /**
++     * Called before reading a stripe to allow prefetching (Doris extension).
++     * Default implementation does nothing.
++     */
++    virtual void beforeReadStripe(
++        std::unique_ptr<StripeInformation> /*current_strip_information*/,
++        const std::vector<bool>& /*selected_columns*/,
++        std::unordered_map<StreamId, std::shared_ptr<InputStream>>& /*streams*/) {}
+   };
+ 
+   /**
