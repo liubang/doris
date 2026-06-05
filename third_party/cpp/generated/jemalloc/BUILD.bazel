@@ -1,0 +1,37 @@
+# Generated jemalloc headers (platform-specific)
+# These are produced by running jemalloc's configure script on each target platform.
+# Configure options: --with-jemalloc-prefix=je_ --enable-prof --disable-cxx
+#                    --disable-libdl --disable-initial-exec-tls
+
+package(default_visibility = ["//visibility:public"])
+
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+config_setting(
+    name = "darwin_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+# Platform-specific generated headers exposed as a cc_library.
+# The include path is set so that #include "jemalloc/jemalloc.h" and
+# #include "jemalloc/internal/jemalloc_internal_defs.h" etc. work correctly.
+cc_library(
+    name = "jemalloc_generated_headers",
+    hdrs = select({
+        ":darwin_arm64": glob(["darwin_arm64/include/**/*.h"]),
+        ":linux_x86_64": glob(["linux_x86_64/include/**/*.h"]),
+    }),
+    includes = select({
+        ":darwin_arm64": ["darwin_arm64/include"],
+        ":linux_x86_64": ["linux_x86_64/include"],
+    }),
+)
