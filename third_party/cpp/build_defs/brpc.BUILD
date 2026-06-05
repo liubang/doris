@@ -26,6 +26,11 @@ cmake(
         "WITH_THRIFT": "OFF",
         "DOWNLOAD_GTEST": "OFF",
         "WITH_DEBUG_SYMBOLS": "OFF",
+        # leveldb 使用两层 target 设计（leveldb_internal + leveldb），
+        # 导致 .a 文件名为 libleveldb_internal.a 而非 libleveldb.a。
+        # 需要显式告诉 cmake leveldb 的库文件路径。
+        "LEVELDB_INCLUDE_PATH": "$$EXT_BUILD_DEPS/include",
+        "LEVELDB_LIB": "$$EXT_BUILD_DEPS/lib/libleveldb_internal.a",
     },
     lib_source = ":all_srcs",
     out_static_libs = ["libbrpc.a"],

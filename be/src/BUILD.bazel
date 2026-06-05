@@ -11,6 +11,11 @@ package(default_visibility = ["//be:__subpackages__"])
 
 # Common copts for all BE source files
 DORIS_BE_COPTS = [
+    # -iquote 优先于外部仓库的 -iquote（Bazel 默认会把依赖库的包根目录
+    # 加入 -iquote），确保 Doris 自己的头文件（如 util/histogram.h）
+    # 不会被外部库的同名头文件覆盖
+    "-iquote",
+    "be/src",
     "-Ibe/src",
     "-Wall",
     "-Wextra",

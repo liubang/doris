@@ -309,6 +309,13 @@ def _cpp_deps_impl(module_ctx):
         ],
         strip_prefix = "leveldb-{ver}".format(ver = _LEVELDB_VERSION),
         build_file = "//third_party/cpp/build_defs:leveldb.BUILD",
+        # 把源文件移到 _src/ 子目录，避免 leveldb 的 util/histogram.h、
+        # util/coding.h 等内部头文件通过 Bazel 的 -iquote 泄漏到下游，
+        # 与 Doris 的同名头文件冲突。
+        patch_cmds = [
+            "mkdir -p _src",
+            "mv db helpers port table util _src/",
+        ],
     )
 
     # =========================================================================

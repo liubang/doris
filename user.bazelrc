@@ -1,0 +1,24 @@
+# ============================================================================
+# 本地构建优化（个人 fork，不进版本库 / 不污染仓库 .bazelrc）
+# 机器：Apple M4 Pro，14 核 / 24GB 内存
+# 由 .bazelrc 末尾的 `try-import %workspace%/user.bazelrc` 加载
+# ============================================================================
+
+# --- 并发与资源：内存是瓶颈（24GB），以内存约束并发，避免 swap 卡死 ---
+# 覆盖仓库 .bazelrc 里 `--jobs=HOST_CPUS*.6`（=14*6=84 并发，会爆内存）。
+# 14 核足够，但 24GB 内存撑不住高并发 C++ 编译，限制到 10 个并发。
+build --jobs=10
+# 让 Bazel 按可用内存调度 action，预留约 30% 给系统/IDE（新语法，旧的 --local_ram_resources 已废弃）。
+build --local_resources=memory=HOST_RAM*0.7
+build --local_resources=cpu=HOST_CPUS
+
+# --- 持久缓存：跨 clean / 切分支不再反复重编 foreign_cc 重型库 ---
+# disk_cache 保存编译产物（jemalloc/openssl/thrift/boost/icu 等），
+# 第二次起命中缓存，构建快一个数量级。
+build --disk_cache=~/.cache/bazel-disk-doris
+# repository_cache 保存下载的第三方源码包，避免重复下载。
+common --repository_cache=~/.cache/bazel-repo-doris
+
+# --- 减少无谓重跑 ---
+# 沙箱目录复用 + worker 复用（仓库 .bazelrc 已开 multiplex/reuse，这里保持一致）。
+build --experimental_reuse_sandbox_directories
