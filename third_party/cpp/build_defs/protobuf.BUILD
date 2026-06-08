@@ -1,13 +1,266 @@
 # Protobuf 21.11 (3.21.11) - C++ runtime for Doris BE
-# Built via CMake using rules_foreign_cc
-# This is separate from the global protobuf (29.x) used by rules_proto for FE.
+# Hand-written cc_library BUILD file (replaces rules_foreign_cc cmake)
 #
+# This is separate from the global protobuf (29.x) used by rules_proto for FE.
 # NOTE: protobuf 21.x does NOT depend on abseil-cpp.
-# Abseil dependency was introduced in protobuf 22.x+.
 
-load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
 package(default_visibility = ["//visibility:public"])
+
+# =============================================================================
+# Common compilation settings
+# =============================================================================
+
+_COPTS = [
+    "-w",  # Suppress all warnings (matches original CMake: CMAKE_CXX_FLAGS = "-w")
+    "-DHAVE_PTHREAD=1",
+    "-DHAVE_ZLIB=1",
+]
+
+_INCLUDES = ["src"]
+
+# =============================================================================
+# libprotobuf-lite (core lightweight runtime)
+# =============================================================================
+
+_PROTOBUF_LITE_SRCS = [
+    "src/google/protobuf/any_lite.cc",
+    "src/google/protobuf/arena.cc",
+    "src/google/protobuf/arenastring.cc",
+    "src/google/protobuf/arenaz_sampler.cc",
+    "src/google/protobuf/extension_set.cc",
+    "src/google/protobuf/generated_enum_util.cc",
+    "src/google/protobuf/generated_message_tctable_lite.cc",
+    "src/google/protobuf/generated_message_util.cc",
+    "src/google/protobuf/implicit_weak_message.cc",
+    "src/google/protobuf/inlined_string_field.cc",
+    "src/google/protobuf/io/coded_stream.cc",
+    "src/google/protobuf/io/io_win32.cc",
+    "src/google/protobuf/io/strtod.cc",
+    "src/google/protobuf/io/zero_copy_stream.cc",
+    "src/google/protobuf/io/zero_copy_stream_impl.cc",
+    "src/google/protobuf/io/zero_copy_stream_impl_lite.cc",
+    "src/google/protobuf/map.cc",
+    "src/google/protobuf/message_lite.cc",
+    "src/google/protobuf/parse_context.cc",
+    "src/google/protobuf/repeated_field.cc",
+    "src/google/protobuf/repeated_ptr_field.cc",
+    "src/google/protobuf/stubs/bytestream.cc",
+    "src/google/protobuf/stubs/common.cc",
+    "src/google/protobuf/stubs/int128.cc",
+    "src/google/protobuf/stubs/status.cc",
+    "src/google/protobuf/stubs/statusor.cc",
+    "src/google/protobuf/stubs/stringpiece.cc",
+    "src/google/protobuf/stubs/stringprintf.cc",
+    "src/google/protobuf/stubs/structurally_valid.cc",
+    "src/google/protobuf/stubs/strutil.cc",
+    "src/google/protobuf/stubs/time.cc",
+    "src/google/protobuf/wire_format_lite.cc",
+]
+
+cc_library(
+    name = "protobuf_lite",
+    srcs = _PROTOBUF_LITE_SRCS,
+    hdrs = glob([
+        "src/google/protobuf/**/*.h",
+        "src/google/protobuf/**/*.inc",
+    ]),
+    copts = _COPTS,
+    includes = _INCLUDES,
+    linkopts = ["-lpthread"],
+    deps = ["@zlib"],
+)
+
+# =============================================================================
+# libprotobuf (full runtime, includes lite)
+# =============================================================================
+
+_PROTOBUF_SRCS = [
+    "src/google/protobuf/any.cc",
+    "src/google/protobuf/any.pb.cc",
+    "src/google/protobuf/api.pb.cc",
+    "src/google/protobuf/compiler/importer.cc",
+    "src/google/protobuf/compiler/parser.cc",
+    "src/google/protobuf/descriptor.cc",
+    "src/google/protobuf/descriptor.pb.cc",
+    "src/google/protobuf/descriptor_database.cc",
+    "src/google/protobuf/duration.pb.cc",
+    "src/google/protobuf/dynamic_message.cc",
+    "src/google/protobuf/empty.pb.cc",
+    "src/google/protobuf/extension_set_heavy.cc",
+    "src/google/protobuf/field_mask.pb.cc",
+    "src/google/protobuf/generated_message_bases.cc",
+    "src/google/protobuf/generated_message_reflection.cc",
+    "src/google/protobuf/generated_message_tctable_full.cc",
+    "src/google/protobuf/io/gzip_stream.cc",
+    "src/google/protobuf/io/printer.cc",
+    "src/google/protobuf/io/tokenizer.cc",
+    "src/google/protobuf/map_field.cc",
+    "src/google/protobuf/message.cc",
+    "src/google/protobuf/reflection_ops.cc",
+    "src/google/protobuf/service.cc",
+    "src/google/protobuf/source_context.pb.cc",
+    "src/google/protobuf/struct.pb.cc",
+    "src/google/protobuf/stubs/substitute.cc",
+    "src/google/protobuf/text_format.cc",
+    "src/google/protobuf/timestamp.pb.cc",
+    "src/google/protobuf/type.pb.cc",
+    "src/google/protobuf/unknown_field_set.cc",
+    "src/google/protobuf/util/delimited_message_util.cc",
+    "src/google/protobuf/util/field_comparator.cc",
+    "src/google/protobuf/util/field_mask_util.cc",
+    "src/google/protobuf/util/internal/datapiece.cc",
+    "src/google/protobuf/util/internal/default_value_objectwriter.cc",
+    "src/google/protobuf/util/internal/error_listener.cc",
+    "src/google/protobuf/util/internal/field_mask_utility.cc",
+    "src/google/protobuf/util/internal/json_escaping.cc",
+    "src/google/protobuf/util/internal/json_objectwriter.cc",
+    "src/google/protobuf/util/internal/json_stream_parser.cc",
+    "src/google/protobuf/util/internal/object_writer.cc",
+    "src/google/protobuf/util/internal/proto_writer.cc",
+    "src/google/protobuf/util/internal/protostream_objectsource.cc",
+    "src/google/protobuf/util/internal/protostream_objectwriter.cc",
+    "src/google/protobuf/util/internal/type_info.cc",
+    "src/google/protobuf/util/internal/utility.cc",
+    "src/google/protobuf/util/json_util.cc",
+    "src/google/protobuf/util/message_differencer.cc",
+    "src/google/protobuf/util/time_util.cc",
+    "src/google/protobuf/util/type_resolver_util.cc",
+    "src/google/protobuf/wire_format.cc",
+    "src/google/protobuf/wrappers.pb.cc",
+]
+
+cc_library(
+    name = "protobuf",
+    srcs = _PROTOBUF_SRCS,
+    copts = _COPTS,
+    includes = _INCLUDES,
+    linkopts = ["-lpthread"],
+    deps = [
+        ":protobuf_lite",
+        "@zlib",
+    ],
+)
+
+# =============================================================================
+# libprotoc (protoc compiler library)
+# =============================================================================
+
+_PROTOC_LIB_SRCS = [
+    "src/google/protobuf/compiler/code_generator.cc",
+    "src/google/protobuf/compiler/command_line_interface.cc",
+    "src/google/protobuf/compiler/cpp/enum.cc",
+    "src/google/protobuf/compiler/cpp/enum_field.cc",
+    "src/google/protobuf/compiler/cpp/extension.cc",
+    "src/google/protobuf/compiler/cpp/field.cc",
+    "src/google/protobuf/compiler/cpp/file.cc",
+    "src/google/protobuf/compiler/cpp/generator.cc",
+    "src/google/protobuf/compiler/cpp/helpers.cc",
+    "src/google/protobuf/compiler/cpp/map_field.cc",
+    "src/google/protobuf/compiler/cpp/message.cc",
+    "src/google/protobuf/compiler/cpp/message_field.cc",
+    "src/google/protobuf/compiler/cpp/padding_optimizer.cc",
+    "src/google/protobuf/compiler/cpp/parse_function_generator.cc",
+    "src/google/protobuf/compiler/cpp/primitive_field.cc",
+    "src/google/protobuf/compiler/cpp/service.cc",
+    "src/google/protobuf/compiler/cpp/string_field.cc",
+    "src/google/protobuf/compiler/csharp/csharp_doc_comment.cc",
+    "src/google/protobuf/compiler/csharp/csharp_enum.cc",
+    "src/google/protobuf/compiler/csharp/csharp_enum_field.cc",
+    "src/google/protobuf/compiler/csharp/csharp_field_base.cc",
+    "src/google/protobuf/compiler/csharp/csharp_generator.cc",
+    "src/google/protobuf/compiler/csharp/csharp_helpers.cc",
+    "src/google/protobuf/compiler/csharp/csharp_map_field.cc",
+    "src/google/protobuf/compiler/csharp/csharp_message.cc",
+    "src/google/protobuf/compiler/csharp/csharp_message_field.cc",
+    "src/google/protobuf/compiler/csharp/csharp_primitive_field.cc",
+    "src/google/protobuf/compiler/csharp/csharp_reflection_class.cc",
+    "src/google/protobuf/compiler/csharp/csharp_repeated_enum_field.cc",
+    "src/google/protobuf/compiler/csharp/csharp_repeated_message_field.cc",
+    "src/google/protobuf/compiler/csharp/csharp_repeated_primitive_field.cc",
+    "src/google/protobuf/compiler/csharp/csharp_source_generator_base.cc",
+    "src/google/protobuf/compiler/csharp/csharp_wrapper_field.cc",
+    "src/google/protobuf/compiler/java/context.cc",
+    "src/google/protobuf/compiler/java/doc_comment.cc",
+    "src/google/protobuf/compiler/java/enum.cc",
+    "src/google/protobuf/compiler/java/enum_field.cc",
+    "src/google/protobuf/compiler/java/enum_field_lite.cc",
+    "src/google/protobuf/compiler/java/enum_lite.cc",
+    "src/google/protobuf/compiler/java/extension.cc",
+    "src/google/protobuf/compiler/java/extension_lite.cc",
+    "src/google/protobuf/compiler/java/field.cc",
+    "src/google/protobuf/compiler/java/file.cc",
+    "src/google/protobuf/compiler/java/generator.cc",
+    "src/google/protobuf/compiler/java/generator_factory.cc",
+    "src/google/protobuf/compiler/java/helpers.cc",
+    "src/google/protobuf/compiler/java/kotlin_generator.cc",
+    "src/google/protobuf/compiler/java/map_field.cc",
+    "src/google/protobuf/compiler/java/map_field_lite.cc",
+    "src/google/protobuf/compiler/java/message.cc",
+    "src/google/protobuf/compiler/java/message_builder.cc",
+    "src/google/protobuf/compiler/java/message_builder_lite.cc",
+    "src/google/protobuf/compiler/java/message_field.cc",
+    "src/google/protobuf/compiler/java/message_field_lite.cc",
+    "src/google/protobuf/compiler/java/message_lite.cc",
+    "src/google/protobuf/compiler/java/name_resolver.cc",
+    "src/google/protobuf/compiler/java/primitive_field.cc",
+    "src/google/protobuf/compiler/java/primitive_field_lite.cc",
+    "src/google/protobuf/compiler/java/service.cc",
+    "src/google/protobuf/compiler/java/shared_code_generator.cc",
+    "src/google/protobuf/compiler/java/string_field.cc",
+    "src/google/protobuf/compiler/java/string_field_lite.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_enum.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_enum_field.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_extension.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_field.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_file.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_generator.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_helpers.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_map_field.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_message.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_message_field.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_oneof.cc",
+    "src/google/protobuf/compiler/objectivec/objectivec_primitive_field.cc",
+    "src/google/protobuf/compiler/php/php_generator.cc",
+    "src/google/protobuf/compiler/plugin.cc",
+    "src/google/protobuf/compiler/plugin.pb.cc",
+    "src/google/protobuf/compiler/python/generator.cc",
+    "src/google/protobuf/compiler/python/helpers.cc",
+    "src/google/protobuf/compiler/python/pyi_generator.cc",
+    "src/google/protobuf/compiler/ruby/ruby_generator.cc",
+    "src/google/protobuf/compiler/subprocess.cc",
+    "src/google/protobuf/compiler/zip_writer.cc",
+]
+
+cc_library(
+    name = "protoc_lib",
+    srcs = _PROTOC_LIB_SRCS,
+    copts = _COPTS,
+    includes = _INCLUDES,
+    linkopts = ["-lpthread"],
+    deps = [":protobuf"],
+)
+
+# =============================================================================
+# protoc binary
+# =============================================================================
+
+cc_binary(
+    name = "protoc",
+    srcs = ["src/google/protobuf/compiler/main.cc"],
+    copts = _COPTS,
+    linkopts = ["-lpthread"],
+    deps = [":protoc_lib"],
+)
+
+# =============================================================================
+# CMake-built target for rules_foreign_cc consumers (e.g., ORC, brpc)
+# These cmake-based builds need protoc binary + libprotoc.a + libprotobuf.a
+# in a traditional install layout (include/lib/bin/).
+# =============================================================================
+
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
 
 filegroup(
     name = "all_srcs",
@@ -15,7 +268,7 @@ filegroup(
 )
 
 cmake(
-    name = "protobuf",
+    name = "protobuf_cmake",
     build_args = ["-j"],
     cache_entries = {
         "CMAKE_BUILD_TYPE": "Release",
@@ -23,7 +276,6 @@ cmake(
         "protobuf_BUILD_SHARED_LIBS": "OFF",
         "protobuf_WITH_ZLIB": "ON",
         "protobuf_BUILD_PROTOC_BINARIES": "ON",
-        # Suppress warnings that may fail compilation on newer compilers
         "CMAKE_CXX_FLAGS": "-w",
         "CMAKE_C_FLAGS": "-w",
     },
@@ -37,11 +289,4 @@ cmake(
     deps = [
         "@zlib",
     ],
-)
-
-# Expose protoc as a tool
-filegroup(
-    name = "protoc",
-    srcs = [":protobuf"],
-    output_group = "protoc",
 )

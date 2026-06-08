@@ -35,7 +35,7 @@ cmake(
     lib_source = ":all_srcs",
     out_static_libs = ["libbrpc.a"],
     deps = [
-        "@protobuf_21//:protobuf",
+        "@protobuf_21//:protobuf_cmake",
         "@gflags//:gflags",
         "@openssl//:openssl",
         "@libevent//:libevent",
