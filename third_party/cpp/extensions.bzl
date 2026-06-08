@@ -145,6 +145,22 @@ def _cpp_deps_impl(module_ctx):
         build_file = "//third_party/cpp/build_defs:rocksdb.BUILD",
         patches = ["//third_party/cpp/patches:rocksdb-metadata-incomplete-type.patch"],
         patch_args = ["-p1"],
+        # Fixes for newer Clang/libc++ compatibility:
+        # 1. autovector<const T*> incompatible with newer libc++ std::sort
+        # 2. cassandra/format.h depends on gtest via testharness.h (FRIEND_TEST macro)
+        # 3. cassandra/format.cc uses shared_ptr without std:: prefix
+        patch_cmds = [
+            "sed -i.bak 's/autovector<const IngestedFileInfo\\*> sorted_files;/std::vector<const IngestedFileInfo*> sorted_files;/' db/external_sst_file_ingestion_job.cc && rm -f db/external_sst_file_ingestion_job.cc.bak",
+            "perl -pi -e 's|#include \"util/testharness.h\"|#ifndef FRIEND_TEST\\n#define FRIEND_TEST(a, b)\\n#endif|' utilities/cassandra/format.h",
+            "sed -i.bak 's/        shared_ptr<Tombstone>/        std::shared_ptr<Tombstone>/' utilities/cassandra/format.cc && rm -f utilities/cassandra/format.cc.bak",
+            # Move conflicting headers (util/coding.h, util/random.h, util/string_util.h)
+            # to _private/ subdirectory to prevent -iquote shadowing of Doris headers.
+            # Bazel always adds -iquote <package_root> for external deps, which causes
+            # RocksDB's util/coding.h to shadow Doris's be/src/util/coding.h.
+            # By moving them to _private/util/, the -iquote search won't find them,
+            # while RocksDB internal compilation uses -I<pkg>/_private in copts.
+            "mkdir -p _private/util && cp util/coding.h _private/util/coding.h && cp util/random.h _private/util/random.h && cp util/string_util.h _private/util/string_util.h && rm util/coding.h util/random.h util/string_util.h",
+        ],
     )
 
     # =========================================================================

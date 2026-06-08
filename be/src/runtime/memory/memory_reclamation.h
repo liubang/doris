@@ -19,9 +19,14 @@
 
 #include <gen_cpp/PaloInternalService_types.h>
 
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include "runtime/workload_management/memory_context.h"
 #include "runtime/workload_management/resource_context.h"
 #include "runtime/workload_management/task_controller.h"
+#include "util/string_util.h"
 
 namespace doris {
 #include "common/compile_check_begin.h"
