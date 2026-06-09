@@ -95,6 +95,60 @@ def _cpp_deps_impl(module_ctx):
         ],
         strip_prefix = "thrift-{ver}".format(ver = _THRIFT_VERSION),
         build_file = "//third_party/cpp/build_defs:thrift.BUILD",
+        patch_cmds = [
+            # Generate thrift/config.h with platform-appropriate defines.
+            # Both macOS and Linux have the standard POSIX headers; the only
+            # difference is STRERROR_R_CHAR_P (glibc-specific) and
+            # HAVE_GETHOSTBYNAME_R (not on macOS).
+            """cat > lib/cpp/src/thrift/config.h << 'EOF'
+#ifndef THRIFT_CONFIG_H
+#define THRIFT_CONFIG_H
+
+#define PACKAGE "thrift"
+#define PACKAGE_VERSION "0.16.0"
+#define PACKAGE_STRING "thrift 0.16.0"
+
+#define ARITHMETIC_RIGHT_SHIFT 1
+#define SIGNED_RIGHT_SHIFT_IS 1
+
+/* POSIX headers available on both Linux and macOS */
+#define HAVE_ARPA_INET_H 1
+#define HAVE_FCNTL_H 1
+#define HAVE_INTTYPES_H 1
+#define HAVE_NETDB_H 1
+#define HAVE_NETINET_IN_H 1
+#define HAVE_SIGNAL_H 1
+#define HAVE_STDINT_H 1
+#define HAVE_UNISTD_H 1
+#define HAVE_PTHREAD_H 1
+#define HAVE_SYS_IOCTL_H 1
+#define HAVE_SYS_PARAM_H 1
+#define HAVE_SYS_RESOURCE_H 1
+#define HAVE_SYS_SOCKET_H 1
+#define HAVE_SYS_STAT_H 1
+#define HAVE_SYS_UN_H 1
+#define HAVE_POLL_H 1
+#define HAVE_SYS_POLL_H 1
+#define HAVE_SYS_SELECT_H 1
+#define HAVE_SYS_TIME_H 1
+#define HAVE_SCHED_H 1
+#define HAVE_STRINGS_H 1
+
+/* Functions */
+#define HAVE_GETHOSTBYNAME 1
+#define HAVE_STRERROR_R 1
+#define HAVE_SCHED_GET_PRIORITY_MAX 1
+#define HAVE_SCHED_GET_PRIORITY_MIN 1
+
+/* Platform-specific */
+#ifdef __linux__
+#define HAVE_GETHOSTBYNAME_R 1
+#define STRERROR_R_CHAR_P 1
+#endif
+
+#endif /* THRIFT_CONFIG_H */
+EOF""",
+        ],
     )
 
     # =========================================================================
